@@ -83,6 +83,10 @@ Its items can run beside stage-1 items.
 Large units are sliced into items of about 20 KB so one child can finish one. Items
 overlap only where a hub function also belongs to its unit's item.
 
+The revision 9 `nurndr-nugscn` follow-up verifies the 624-byte texture-animation
+loader and records two measured `nugscn` plateaus. Its six unfinished functions in
+`nurndr`, `nustream` and `nuspecial` remain in the item; the stage order is unchanged.
+
 ## How an item is worked
 
 One item per thread, one PR, its own worktree, branch `t3/plan-<item>`.
@@ -189,6 +193,14 @@ leads by body, not only by name. `fn_8008F660` is `AISysFindRoute`, `fn_8008FB18
 `QuickNewRayCast`, `fn_80090FB0` is `APIObjectCollisions`, `fn_80091FC0` is
 `APICharacterSysInit` and `fn_800913BC` is an earlier and longer `AddAnimEffects`. This
 revision also parks the `apiobject` plateaus with their best scores.
+
+Revision 9 (2026-11-13) records the second `nuportal` pass: three new strict
+matches / 3,908 B and four measured plateaus, each above the 25-candidate floor.
+The item has no unattempted functions; promotion still needs the remaining bodies
+and unit-wide section/relocation/range checks. The stale scaffold note is replaced
+with the current result. The zero-yield `nuanim` bench warning was reviewed; this
+pass supplies no evidence to reorder stages or reclassify its unfinished work.
+Stage 2 keeps its existing order, continuing at the next unclaimed item.
 
 ## Rules that do not change
 

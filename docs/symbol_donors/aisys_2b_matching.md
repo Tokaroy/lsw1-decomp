@@ -80,8 +80,8 @@ store. Both were rejected. The repair adds call/update, direct scalar dependency
 and repeated-lvalue barriers to automatic runs. Explicitly marked searches retain
 their existing behavior, and memory aliasing still requires manual review.
 
-Both #173 and #174 claimed workflow gap 27; this repair uses the next free number,
-[28](../workflow_gaps.md#28-automatic-ordering-crossed-dependencies).
+#173 and #174 both claimed workflow gap 27 (now 27 and 28); this repair uses the next free number,
+[29](../workflow_gaps.md#29-automatic-ordering-crossed-dependencies).
 The [controlled replay](../workflow_metrics.md#automatic-order-dependency-barriers)
 retains the same drafts and budgets: 650 → 650 compiled scores, compile errors
 0 → 0, new strict matches 0 → 0. The native allocation fixture improves from

@@ -99,12 +99,14 @@ No donor source was copied.
 
 Ellie question: Do you recognize situations where characters steer around circular,
 elliptical or rectangular invisible AI boundaries? Examples would help name the
-three unnamed geometry handlers. Their gameplay names remain parked. No runtime
+three unnamed geometry handlers. Their gameplay names remained parked in this
+matching pass. The [subsequent naming investigation](aisys_shape_handlers.md)
+resolves their antinode identities and records Ellie's answers. No runtime
 session was driven and no gameplay assumption was used to justify a match.
 
 ## Workflow repair and verification
 
-The pointer-array sweep repair is [gap 27](../workflow_gaps.md#27-pointer-array-cursors-retained-byte-displacements).
+The pointer-array sweep repair is [gap 28](../workflow_gaps.md#28-pointer-array-cursors-retained-byte-displacements).
 A controlled replay gives 97 → 104/201 and 143 → 144/273 exact instructions:
 combined **240 → 248**, compile errors **0 → 0**, strict matches **0 → 0**.
 The affected sweep was rerun with `--apply`; it found no strict matches. The three

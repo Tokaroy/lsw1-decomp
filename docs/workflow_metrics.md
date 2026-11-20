@@ -220,7 +220,7 @@ preferred a different alternative for `fn_80088CD8`. Eight more exact instructio
 positions in mismatching drafts are not matching progress. Fixed-candidate replays
 do not measure matching throughput. The source additions elsewhere in the unit
 also changed the broad sweep comparison, so that comparison is not the controlled
-measurement. See [gap 27](workflow_gaps.md#27-pointer-array-cursors-retained-byte-displacements).
+measurement. See [gap 28](workflow_gaps.md#28-pointer-array-cursors-retained-byte-displacements).
 
 ## Automatic order dependency barriers
 
@@ -248,7 +248,7 @@ The three lexicographically best search results have exact counts
 704/504/367 → 699/505/375. Some earlier winners violated dependencies; the lower
 path-loader score is not a matching regression. None is accepted source, and
 memory aliasing remains a manual review obligation. See
-[gap 28](workflow_gaps.md#28-automatic-ordering-crossed-dependencies).
+[gap 29](workflow_gaps.md#29-automatic-ordering-crossed-dependencies).
 
 ## Recording a change
 
@@ -260,3 +260,19 @@ memory aliasing remains a manual review obligation. See
    headline one.
 4. State what changed besides the workflow (model, units, starting drafts). If a change
    moved the wrong metric, record that too.
+
+### NuMtlRender declaration parser repair
+
+The same compiling `nugscn` source and body were replayed with ProDG, eight jobs
+and a 300-candidate limit, changing only declaration recognition. The old parser
+included `count = NuFileReadInt(fh);` in declaration permutations; the corrected
+parser searches only the four actual declarations.
+
+| Metric | Before → after | Change |
+|---|---|---|
+| Compile-error rate of scored attempts | 34.4% → **0%** | 96/279 → 0/183 errors |
+
+`workflow_metrics.py compare` reports the row above from the
+`nugscn-decl-before-2026-11-13` and `nugscn-decl-after-2026-11-13` cohorts.
+Best exact score stays 81/93, so the fix restores valid hypotheses without a
+matching-byte claim. See [gap 27](workflow_gaps.md#27-declaration-search-permuted-assignments).
