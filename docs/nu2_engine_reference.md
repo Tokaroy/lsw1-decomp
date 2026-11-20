@@ -153,6 +153,25 @@ pointer counted from NULL in 0xD0 steps when `displayScene` is set; the donor st
 NULL. Two `symbols.txt` names are wrong by body: `NuSpecialFindMultiWC` is DrawAt and
 `NuSpecialGetInstAnim` is GetName. They are not renamed yet.
 
+### GameCube scene-loader allocation and fixups
+
+`auto/nu3d/ngc/nugscn.c` uses the shared `variptr_u` address view from
+[`nucore/numem.h`](../src/nucore/numem.h) for `lbl_8040A350`, the scene-buffer
+end. `fn_80028444` reserves a 16-byte-aligned environment through the cursor
+pointed to by `lbl_8040A34C`; its unsigned end comparison is at `0x800285EC`.
+The union view preserves the target load after the environment-pointer store,
+giving a strict 156/156 match. All 18 previously strict functions in the unit
+remain strict; this is a function verification, with no unit promotion.
+
+The same target confirms 0x20-byte texture-animation records: ID pointer +0x08,
+signed ID count +0x0C, allocation flag +0x0E, material +0x10, environment +0x14,
+name +0x18 and program name +0x1C. The loader remaps IDs, fixes names/materials,
+creates environments and links the animation list. OpenSaga's `NuReadGraphicsData`
+corroborates that sequence, but its scene layout and pointer-block loader differ.
+The remaining GC loaders use 0x0C-byte vertex-set records (`fn_80028DAC`) and
+0x3C-byte texture descriptors (`NuMtlRender`); their current nonmatches are
+recorded in [`config/plan.toml`](../config/plan.toml).
+
 ### Portal and packed-animation evidence (`nuqfnt`)
 
 The local views in [`auto/nu3d/nuqfnt.c`](../src/auto/nu3d/nuqfnt.c) extend the
@@ -444,6 +463,31 @@ Control-flow evidence:
   - `fn_8001C20C` passes `state + 0x5C` by pointer into `fn_8000EA74`,
     so the tail is a 3-float vector, not padding
 
+
+### Camera setup and extents matching (nuportal pass 2)
+
+The bodies at `0x8001C20C` (`NuAnimCurveSetApplyBlendToJoint2`) and
+`0x8001CA54` (`NuAnimCurveSetApplyToJoint2`) strictly match camera setup and
+generic extents clipping. Their current symbols remain historical misattributions.
+OpenSaga `nu3d_includes.cpp` at `7bb2402aa902d08f0979892ca23ee80e809e5ee1`
+and CrashWOC `nucamera.c` supply the algorithm leads; GC assembly decides the
+fast path, projection variants and outcode tests.
+
+Camera setup copies the complete `0x68`-byte camera. Its tail vector at `+0x5C`
+feeds `NuVec4MtxTransformVU0x4`, whose body scales a matrix, supporting `scale`
+in the local `nucam_s` view. The older shared view still calls this field `pos`.
+The clip test reads `nearclip` at `+0x48` in its first pass and the alias
+`lbl_803132B0` (`+0x48` relative to the camera base) in its second;
+these two references reach the same field but retain their retail source forms.
+A zero far-clip argument falls back to `lbl_803132B4` (`+0x4C`). Flag 2 skips
+near-plane rejection and flag 1 skips the second, scissor-plane pass.
+
+The camera setup calls `fn_8000ABDC` with two floats, no matrix argument.
+`fn_80027BE4` and `NuTexReadBitmapMM` return `s32`; treating either as `void`
+changes the caller's scheduling. These prototypes were checked against their
+current source bodies and the target call sequence. The projection builders
+write their globals directly; an output-pointer helper keeps those addresses
+live too early and changes register allocation.
 
 ## Recovering types and boundaries
 

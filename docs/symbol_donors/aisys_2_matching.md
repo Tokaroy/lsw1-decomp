@@ -104,7 +104,7 @@ session was driven and no gameplay assumption was used to justify a match.
 
 ## Workflow repair and verification
 
-The pointer-array sweep repair is [gap 27](../workflow_gaps.md#27-pointer-array-cursors-retained-byte-displacements).
+The pointer-array sweep repair is [gap 28](../workflow_gaps.md#28-pointer-array-cursors-retained-byte-displacements).
 A controlled replay gives 97 → 104/201 and 143 → 144/273 exact instructions:
 combined **240 → 248**, compile errors **0 → 0**, strict matches **0 → 0**.
 The affected sweep was rerun with `--apply`; it found no strict matches. The three
