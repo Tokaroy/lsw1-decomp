@@ -64,6 +64,7 @@ median of 48 distinct candidates per park.
 | 25 | [Handoffs skipped the hypothesis floor](#25-handoffs-skipped-the-hypothesis-floor) | distinct candidates; compile-error rate | fixed: aisys-1 short handoffs accepted without a reason 7 → 0; ERROR events with a diagnostic class 0% → all new |
 | 26 | [Order search needed hand markers](#26-order-search-needed-hand-markers) | distinct candidates | fixed: markers needed 1+ → 0; `--body` output 1,992-line unit → 76-line definition |
 | 27 | [Declaration search permuted assignments](#27-declaration-search-permuted-assignments) | compile-error rate | fixed: same NuMtlRender seed, 96/279 errors (34.4%) → 0/183; no additional match |
+| 28 | [Pointer-array cursors retained byte displacements](#28-pointer-array-cursors-retained-byte-displacements) | exact-instruction gain (draft replay) | fixed: two captured aisys drafts 240 → 248 exact, compile errors 0 → 0; no strict match |
 
 ## 1. Stale task packs change scores
 
@@ -658,3 +659,26 @@ after. The valid search is smaller because it permutes four declarations rather
 than four declarations and an assignment. Best score stays 81/93; no match is
 attributed to this tool fix. The cohorts and comparison live in
 [`config/workflow_metrics.toml`](../config/workflow_metrics.toml).
+
+## 28. Pointer-array cursors retained byte displacements
+
+The raw `fn_80088CD8` and `fn_8008911C` drafts inferred `void **` cursors but
+retained PPC byte steps (`+= 4`) and byte offsets inside explicit word accesses.
+C then scaled those displacements by another four. Ordinary pointer indexing
+was already correct.
+
+The speculative `pointer_array_bytes` final-stage repair tries a four-byte
+cursor step as one element and inserts a byte-pointer cast beneath explicit
+word accesses. Other step sizes and ordinary indexing stay intact. The existing
+strict scorer decides whether to retain the alternative; verification is unchanged.
+
+Before → after, replaying two captured drafts against the same source/compiler:
+`fn_8008911C` 97 → 104/201 exact instructions; `fn_80088CD8` 143 → 144/273.
+Combined: 240 → 248 exact, compile errors 0 → 0, strict matches 0 → 0.
+The affected sweep was rerun with `--apply`: no strict matches were available.
+This is draft improvement, not eight matched instructions or a throughput claim.
+See the [measurement](workflow_metrics.md#pointer-array-byte-cursor-repair).
+
+Tests: `tests/test_sweep_pointer_arrays.py` covers captured cursor/offset forms,
+idempotence, decimal/hex steps, and preservation of normal indexing and unrelated
+arithmetic. Disabling the repair makes the captured regression fail.
