@@ -5113,3 +5113,940 @@ s32 GetNamedGameObject(void *sys, char *name, s32 scriptOnly)
     }
     return (s32)result;
 }
+
+#define FindObstacle ((void *(*)(void *, char *))FindObstacle)
+
+s32 Action_SetDoorFinished(void *sys, void *process, void *packet, char **params, s32 count, s32 firstTime, f32 time)
+{
+    s32 set = 1;
+    char *name = 0;
+    u8 *obs = 0;
+    s32 i;
+
+    if (firstTime != 0 && count != 0) {
+        for (i = 0; i < count; i++) {
+            if (NuStrICmp(params[i], str_Bool_FALSE) == 0) {
+                set = 0;
+            } else {
+                name = params[i];
+            }
+        }
+        if (name != 0) {
+            obs = (u8 *)FindObstacle(lbl_80409410, name);
+            if (obs != 0) {
+                if (set != 0) {
+                    *(u32 *)(obs + 0x18) |= 0x20;
+                } else {
+                    *(u32 *)(obs + 0x18) &= ~0x20;
+                }
+            }
+        }
+    }
+    return 1;
+}
+#undef FindObstacle
+
+struct gameaiscript_group_s {
+    u8 unk0[7];
+    u8 count;
+    u8 unk8[4];
+    struct gameaiscript_owner_s *members[1];
+};
+
+struct gameaiscript_alive_obj_s {
+    u8 unk0[0x20c];
+    u32 flags20c;
+    u8 unk210[0x7f];
+    u8 dead;
+    u8 unk290[0x100];
+    struct gameaiscript_group_s *group;
+};
+
+f32 Condition_IsAlive(void *sys, void *process, void *packet, char *name, void *argument)
+{
+    if (argument != 0) {
+        struct gameaiscript_alive_obj_s *obj = (struct gameaiscript_alive_obj_s *)argument;
+        if (obj->group != 0) {
+            s32 i;
+            for (i = 0; i < obj->group->count; i++) {
+                if (obj->group->members[i] != 0) {
+                    struct gameaiscript_alive_obj_s *m = (struct gameaiscript_alive_obj_s *)obj->group->members[i]->object;
+                    if ((m->flags20c & 0x80080000) == 0x80080000 && m->dead == 0) {
+                        return 1.0f;
+                    }
+                }
+            }
+        } else if ((obj->flags20c & 0x80000) != 0 && obj->dead == 0) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+}
+
+extern void CreatureCrate_Stop(void);
+
+struct gameaiscript_baddy_obj_s {
+    u8 unk0[0x208];
+    u32 flags208;
+    u32 flags20c;
+    u8 unk210[0xe88];
+};
+
+struct gameaiscript_crate_s {
+    u8 unk0[0xd4];
+    struct gameaiscript_baddy_obj_s *obj;
+    u8 unkD8[0x50];
+    s32 state;
+    u8 unk12C[0x84];
+    void *fn;
+    u8 unk1B4[0x40];
+};
+
+f32 Condition_NumBaddies(void *sys, void *process, void *packet, char *name, void *argument)
+{
+    s32 count = 0;
+    s32 i;
+    struct gameaiscript_baddy_obj_s *o = (struct gameaiscript_baddy_obj_s *)lbl_80409430;
+    struct gameaiscript_crate_s *c;
+
+    for (i = 0; i < lbl_8040B058; i++, o++) {
+        if ((o->flags20c & 0x80080000) == 0x80080000 && (o->flags208 & 1) != 0) {
+            count++;
+        }
+    }
+    c = (struct gameaiscript_crate_s *)lbl_8040AEFC;
+    for (i = 0; i < lbl_80408888; i++, c++) {
+        if (c->state < 0 && c->fn == (void *)CreatureCrate_Stop) {
+            o = c->obj;
+            if (o != 0 && (o->flags208 & 1) != 0) {
+                count++;
+            }
+        }
+    }
+    return (f32)count;
+}
+
+extern char str_ScriptParam_Category[];
+extern char str_ScriptParam_MinSpeed[];
+
+s32 Action_CycleCharacter(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    u8 *object;
+    u8 *pk = (u8 *)packet;
+    char *p;
+    s32 i;
+    s32 j;
+
+    if (packet != 0 && packet->owner != 0 && (object = packet->owner->object) != 0
+        && lbl_804091F8 != 0 && (s8)object[0x284] != -1) {
+        if (firstTime != 0) {
+            pk[0xb2] = 8;
+            pk[0xb3] = 8;
+            for (i = 0; i < count; i++) {
+                if ((p = NuStrIStr(params[i], str_ScriptParam_Time)) != 0) {
+                    *(f32 *)(pk + 0xb8) = AIParamToFloat(packet, p + 5);
+                } else if ((p = NuStrIStr(params[i], str_ScriptParam_Category)) != 0) {
+                    p += 9;
+                    for (j = 0; j < 8; j++) {
+                        if (NuStrICmp(((char **)lbl_801D63C4)[j], p) == 0) {
+                            if (pk[0xb2] < 8) {
+                                pk[0xb3] = j;
+                            } else {
+                                pk[0xb2] = j;
+                            }
+                            break;
+                        }
+                    }
+                } else if ((p = NuStrIStr(params[i], str_ScriptParam_MinSpeed)) != 0) {
+                    *(f32 *)(pk + 0xbc) = AIParamToFloat(packet, p + 10);
+                }
+            }
+        }
+        if (((u8 *)*(void **)(object + 0xeec))[0x7df] == 0xc)
+            return 0;
+        if (pk[0xb2] <= 7) {
+            if (*(f32 *)(pk + 0xbc) == 0.0f
+                || *(f32 *)(*(u8 **)(*(u8 **)((u8 *)packet->owner + 0x64) + 0x20) + 0x18) >= *(f32 *)(pk + 0xbc)) {
+                if (fn_800CC284(object, pk[0xb2]) != 0)
+                    return 1;
+                if (pk[0xb3] <= 7 && fn_800CC284(object, pk[0xb3]) != 0)
+                    return 1;
+            }
+            *(f32 *)((u8 *)process + 0x40) += lbl_80408E9C;
+            if (*(f32 *)((u8 *)process + 0x40) > *(f32 *)(pk + 0xb8)) {
+                *(f32 *)((u8 *)process + 0x40) = 0.0f;
+                *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 8) |= 0x100;
+            }
+            return 0;
+        }
+        if (*(f32 *)(pk + 0xbc) != 0.0f) {
+            if (*(f32 *)(*(u8 **)(*(u8 **)((u8 *)packet->owner + 0x64) + 0x20) + 0x18) >= *(f32 *)(pk + 0xbc))
+                return 1;
+            *(f32 *)((u8 *)process + 0x40) += lbl_80408E9C;
+            if (*(f32 *)((u8 *)process + 0x40) > *(f32 *)(pk + 0xb8)) {
+                *(f32 *)((u8 *)process + 0x40) = 0.0f;
+                *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 8) |= 0x100;
+            }
+        }
+    }
+    return 1;
+}
+
+extern f32 lbl_804099EC;
+extern f32 lbl_80409A00;
+extern f32 lbl_80409A04;
+extern s32 abs(s32);
+
+s32 Action_Snipe(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    u8 *object;
+    u8 *pk = (u8 *)packet;
+    u8 *creature;
+    s32 i;
+
+    if (packet == 0 || packet->owner == 0 || (object = packet->owner->object) == 0
+        || (*(u32 *)(object + 0x208) & 0x400) == 0) {
+        return 1;
+    }
+
+    creature = *(u8 **)((u8 *)sys + 0x14) + object[0x346] * 0xa8;
+    if (firstTime != 0) {
+        *(f32 *)((u8 *)process + 0x40) = lbl_804099EC * fn_8000C038();
+        *(f32 *)(pk + 0xc0) = 0.0f;
+        *(f32 *)(pk + 0xc4) = 0.0f;
+        *(f32 *)(pk + 0xc8) = 1.0f;
+        NuVecRotateY(pk + 0xc0, pk + 0xc0, *(s32 *)(creature + 0x3c));
+        NuVecAdd(pk + 0xc0, pk + 0xc0, creature + 0x30);
+    }
+
+    *(u32 *)(object + 0xf24) |= 0x8000000;
+    *(f32 *)((u8 *)process + 0x40) -= time;
+    if (*(f32 *)((u8 *)process + 0x40) <= 0.0f) {
+        f32 t = lbl_804099EC;
+        *(void **)(pk + 0xb4) = 0;
+        *(f32 *)((u8 *)process + 0x40) = t;
+        for (i = 0; i < 8; i++) {
+            u8 *player = (u8 *)gPlayer1Pointer[i];
+            if (player != 0) {
+                u8 *area = *(u8 **)(pk + 0xf8);
+                if (area == 0 || (*(u64 *)(area + 0x30) & ((u64 (*)())__ashldi3)(0, 1, player[0x291])) != 0) {
+                    struct gameaiscript_vec_s diff;
+                    f32 d = fn_8000CDFC(player + 0x6c, (u8 *)packet->owner + 0x6c, &diff);
+                    if (d > lbl_80409A00 * lbl_80409A00 && d < lbl_80409A04 * lbl_80409A04) {
+                        if (abs(NuAngSub(fn_8000ABDC(diff.x, diff.z), *(s32 *)(creature + 0x3c))) <= 0x2aa9) {
+                            *(void **)(pk + 0xb4) = gPlayer1Pointer[i];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (*(void **)(pk + 0xb4) != 0) {
+            *(void **)(object + 0xef0) = *(void **)(pk + 0xb4);
+            *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 8) |= 0x40;
+        }
+    }
+    if (*(u8 **)(pk + 0xb4) != 0) {
+        *(void **)(pk + 0x19c) = *(u8 **)(pk + 0xb4) + 0x6c;
+    } else {
+        *(void **)(pk + 0x19c) = pk + 0xc0;
+    }
+    return 0;
+}
+
+extern u32 NuRandInt(void);
+extern void *fn_801272FC(void *, void *, s32, s32);
+extern void *fn_800133FC(void *);
+
+s32 Action_UseForce(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    void *candidates[16];
+    s32 n = 0;
+    u8 *object;
+    u8 *pk = (u8 *)packet;
+    u8 *force;
+    char *name;
+    char *p;
+    s32 i;
+
+    if (packet != 0 && packet->owner != 0 && (object = packet->owner->object) != 0) {
+        if (firstTime != 0) {
+            *(void **)(pk + 0xb4) = 0;
+            for (i = 0; i < count; i++) {
+                name = 0;
+                if (NuStrICmp(params[i], str_Entity_Throwable) == 0) {
+                    pk[0xb2] = 1;
+                } else if (NuStrICmp(params[i], str_Entity_InRange) == 0) {
+                    pk[0xb3] = 1;
+                } else {
+                    p = NuStrIStr(params[i], str_ScriptParam_Name);
+                    if (p != 0) {
+                        name = p;
+                        name += 5;
+                    } else {
+                        name = params[i];
+                    }
+                }
+                if (name != 0 && n < 16) {
+                    candidates[n] = (void *)FindForceObject(lbl_80409410, name, 0);
+                    if (candidates[n] != 0)
+                        n++;
+                }
+            }
+            if (n != 0) {
+                i = NuRandInt() % (u32)n;
+                *(void **)(pk + 0xb4) = candidates[i];
+            } else {
+                *(void **)(pk + 0xb4) = fn_801272FC(lbl_80409410, packet->owner, pk[0xb2], pk[0xb3] == 0);
+            }
+        }
+        force = *(u8 **)(pk + 0xb4);
+        if (force != 0 && fn_800130F4(force + 4) != 0) {
+            if (fn_800CC284(object, 0) == 0 && fn_800CC284(object, 1) == 0) {
+                if (lbl_804091F8 != 0) {
+                    *(f32 *)((u8 *)process + 0x40) -= lbl_80408E9C;
+                    if (*(f32 *)((u8 *)process + 0x40) < 0.0f) {
+                        *(f32 *)((u8 *)process + 0x40) = 0.5f;
+                        *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 8) |= 0x100;
+                    }
+                }
+                return 0;
+            }
+            if (fn_800130F4(force + 4) != 0) {
+                *(void **)(pk + 0x19c) = (u8 *)fn_800133FC(force + 4) + 0x30;
+                *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 0x58) |= 0x2000;
+                *(void **)(*(u8 **)(object + 0xeec) + 0x620) = force;
+                if (pk[0xb2] != 0) {
+                    if (*(void **)(pk + 0x54) == 0) {
+                        *(u32 *)(*(u8 **)(*(u8 **)(object + 0xeec) + 0x61c) + 0x58) &= ~0x2000;
+                        *(void **)(*(u8 **)(object + 0xeec) + 0x620) = 0;
+                    }
+                    return 1;
+                }
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
+
+extern void *ObjectControllerCreate(void *, char *);
+extern void NuStrCpy(char *, char *);
+extern void (*fn_80009948(char *, s32))();
+extern void fn_80108D2C(void *, s32, s32);
+extern char lbl_801AD758[];
+extern char lbl_801AD790[];
+extern char lbl_801AD7F0[];
+extern char lbl_801AD7FC[];
+extern char lbl_801AD804[];
+extern char str_Assert_ActionCnxController_LevelScriptOnly[];
+extern char str_SourceFile_GameAIScript[];
+
+struct gameaiscript_special_s {
+    s32 a;
+    s32 b;
+    s32 c;
+};
+
+struct gameaiscript_objctrl_flags_s {
+    u32 checkVisible : 1;
+    u32 rest : 31;
+};
+
+s32 Action_ObjectController(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    struct gameaiscript_special_s specials[16];
+    char buf[64];
+    char *name = 0;
+    s32 checkVisible = 0;
+    s32 nSpecials = 0;
+    u16 onMask = 0;
+    u16 offMask = 0;
+    char *p;
+    u8 *ctrl;
+    s32 i;
+
+    if (packet != 0) {
+        fn_80009948(str_SourceFile_GameAIScript, 0x1D8A)(str_Assert_ActionCnxController_LevelScriptOnly);
+    }
+    if (firstTime != 0) {
+        for (i = 0; i < count; i++) {
+            if (NuStrIStr(params[i], lbl_801AD758) != 0)
+                continue;
+            if ((p = NuStrIStr(params[i], lbl_801AD7F0)) != 0) {
+                name = p + 11;
+            } else if (NuStrIStr(params[i], lbl_801AD790) != 0) {
+                checkVisible = 1;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD7FC)) != 0) {
+                if (nSpecials < 16 && NuSpecialFind(*(void **)((u8 *)lbl_80409410 + 0x1c0), &specials[nSpecials], p + 7, 1) != 0) {
+                    onMask |= (1 << nSpecials);
+                    offMask &= ~(1 << nSpecials);
+                    nSpecials++;
+                }
+            } else if ((p = NuStrIStr(params[i], lbl_801AD804)) != 0) {
+                if (nSpecials < 16 && NuSpecialFind(*(void **)((u8 *)lbl_80409410 + 0x1c0), &specials[nSpecials], p + 8, 1) != 0) {
+                    offMask |= (1 << nSpecials);
+                    onMask &= ~(1 << nSpecials);
+                    nSpecials++;
+                }
+            }
+        }
+        ctrl = (u8 *)ObjectControllerCreate(*(void **)((u8 *)lbl_80409410 + 0x574), name);
+        if (ctrl != 0) {
+            for (i = 0; i < nSpecials; i++) {
+                ((struct gameaiscript_special_s *)(ctrl + 0x18))[i] = specials[i];
+            }
+            *(s32 *)(ctrl + 0x14) = nSpecials;
+            *(u16 *)(ctrl + 0xd8) = onMask;
+            *(u16 *)(ctrl + 0xda) = offMask;
+            ((struct gameaiscript_objctrl_flags_s *)(ctrl + 0x15c))->checkVisible = checkVisible;
+            for (i = 0; i < count; i++) {
+                if ((p = NuStrIStr(params[i], lbl_801AD758)) != 0) {
+                    NuStrCpy(buf, p + 10);
+                    if ((p = NuStrIStr(buf, lbl_801AD7E0)) != 0) {
+                        s32 startFrame;
+                        s32 endFrame;
+                        *p = 0;
+                        p += 2;
+                        startFrame = (s32)AIParamToFloat(packet, buf);
+                        endFrame = (s32)AIParamToFloat(packet, p);
+                        if (endFrame >= startFrame)
+                            fn_80108D2C(ctrl, startFrame, endFrame);
+                    }
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+extern void *AIPathCnxControllerCreate(void *, void *, void *, char *, char *, char *, char *);
+extern void *AISysFindPath(void *, char *);
+extern void fn_8012CBA8(void *, s32, s32);
+extern char lbl_801AD764[];
+extern char lbl_801AD76C[];
+extern char lbl_801AD770[];
+extern char lbl_801AD778[];
+extern char lbl_801AD784[];
+extern char lbl_801AD7AC[];
+extern char lbl_801AD7B4[];
+extern char lbl_801AD7C0[];
+extern char lbl_801AD7D0[];
+extern char lbl_801AD7E4[];
+
+struct gameaiscript_cnxctrl_flags_s {
+    u32 unk0 : 1;
+    u32 bothWays : 1;
+    u32 checkVisible : 1;
+    u32 onOpen : 1;
+    u32 offOpen : 1;
+    u32 rest : 27;
+};
+
+s32 Action_CnxController(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    char buf[64];
+    s32 checkVisible = 0;
+    char *from = 0;
+    char *to = 0;
+    char *obj = 0;
+    char *cutscene = 0;
+    u32 onFlags = 0;
+    u32 offFlags = 0;
+    s32 bothWays = 0;
+    s32 onOpen = 0;
+    s32 offOpen = 0;
+    void *path = 0;
+    char *p;
+    u8 *ctrl;
+    s32 i;
+
+    if (packet != 0) {
+        fn_80009948(str_SourceFile_GameAIScript, 0x1D21)(str_Assert_ActionCnxController_LevelScriptOnly);
+    }
+    if (firstTime != 0) {
+        for (i = 0; i < count; i++) {
+            if (NuStrIStr(params[i], lbl_801AD758) != 0)
+                continue;
+            if ((p = NuStrIStr(params[i], lbl_801AD764)) != 0) {
+                from = p + 5;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD76C)) != 0) {
+                to = p + 3;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD770)) != 0) {
+                obj = p + 4;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD778)) != 0) {
+                cutscene = p + 9;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD784)) != 0) {
+                path = AISysFindPath(sys, p + 9);
+            } else if (NuStrIStr(params[i], lbl_801AD790) != 0) {
+                checkVisible = 1;
+            } else if (NuStrIStr(params[i], lbl_801AD7A0) != 0) {
+                bothWays = 1;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD7AC)) != 0 || (p = NuStrIStr(params[i], lbl_801AD7B4)) != 0) {
+                s32 isOn;
+                u32 *flagsPtr;
+                if (NuStrIStr(params[i], lbl_801AD7AC) != 0) {
+                    isOn = 1;
+                    flagsPtr = &onFlags;
+                    p += 8;
+                } else {
+                    isOn = 0;
+                    flagsPtr = &offFlags;
+                    p += 9;
+                }
+                if (NuStrIStr(params[i], lbl_801AD7C0) != 0) {
+                    if (isOn != 0)
+                        onOpen = 1;
+                    else
+                        offOpen = 1;
+                } else if (NuStrIStr(params[i], lbl_801AD7D0) != 0) {
+                    if (isOn != 0)
+                        onOpen = 0;
+                    else
+                        offOpen = 0;
+                } else {
+                    *flagsPtr |= ParseAIPathCnxFlag(p);
+                }
+            }
+        }
+        ctrl = (u8 *)AIPathCnxControllerCreate(*(void **)((u8 *)lbl_80409410 + 0x570),
+            *(void **)((u8 *)lbl_80409410 + 0x2e8), path, from, to, obj, cutscene);
+        if (ctrl != 0) {
+            ((struct gameaiscript_cnxctrl_flags_s *)(ctrl + 0xa4))->bothWays = bothWays;
+            *(u32 *)(ctrl + 0x1c) = onFlags;
+            *(u32 *)(ctrl + 0x20) = offFlags;
+            ((struct gameaiscript_cnxctrl_flags_s *)(ctrl + 0xa4))->checkVisible = checkVisible;
+            ((struct gameaiscript_cnxctrl_flags_s *)(ctrl + 0xa4))->onOpen = onOpen;
+            ((struct gameaiscript_cnxctrl_flags_s *)(ctrl + 0xa4))->offOpen = offOpen;
+            for (i = 0; i < count; i++) {
+                if ((p = NuStrIStr(params[i], lbl_801AD758)) != 0) {
+                    NuStrCpy(buf, p + 10);
+                    if ((p = NuStrIStr(buf, lbl_801AD7E0)) != 0) {
+                        s32 startFrame;
+                        s32 endFrame;
+                        *p = 0;
+                        p += 2;
+                        if (NuStrICmp(buf, lbl_801AD7E4) == 0)
+                            startFrame = -1;
+                        else
+                            startFrame = (s32)AIParamToFloat(packet, buf);
+                        if (NuStrICmp(p, lbl_801AD7E4) == 0)
+                            endFrame = -1;
+                        else
+                            endFrame = (s32)AIParamToFloat(packet, p);
+                        if (endFrame >= startFrame || endFrame == -1)
+                            fn_8012CBA8(ctrl, startFrame, endFrame);
+                    }
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+#define InitSplinePosition ((void (*)(void *, void *, f32, s32))InitSplinePosition)
+extern const f32 lbl_801AD500[];
+extern f32 fn_800D0030(void *, s32);
+extern void fn_800CF3D8(void *, f32, void *, u16 *, s32, s32);
+extern void *AddDynamicCreature(s32, void *, u16, char *, s32, s32, s32);
+extern char str_ScriptParam_MinGroupSize[];
+extern char str_ScriptParam_MaxGroupSize[];
+extern char str_ScriptParam_GroupSize[];
+extern char str_ScriptParam_Script[];
+extern char str_ScriptParam_MinDX[];
+extern char str_ScriptParam_MaxDX[];
+extern char str_ScriptParam_MinDY[];
+extern char str_ScriptParam_MaxDY[];
+extern char str_ScriptParam_DX[];
+extern char str_ScriptParam_DY[];
+extern char str_ScriptParam_SplineName[];
+extern char str_ScriptDir_Backwards[];
+extern char str_ScriptParam_SpeedMultiplier[];
+
+struct gameaiscript_spline_f24_s {
+    u32 unk0 : 17;
+    u32 unk11 : 4;
+    u32 hasSpeed : 1;
+    u32 unk16 : 10;
+};
+
+s32 Action_CreateSplineCreatures(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    u8 types[10];
+    char scriptName[64] = "default";
+    struct gameaiscript_vec_s pos = {0.0f, 0.0f, 0.0f};
+    s32 hasSpeed = 0;
+    s32 groupSize = 1;
+    f32 dist = 0.0f;
+    f32 speedMul = 1.0f;
+    s32 minGroup = -1;
+    s32 maxGroup = -1;
+    s32 nTypes = 0;
+    s32 looping = 0;
+    u16 angle = 0;
+    void *spline = 0;
+    char *p;
+    s32 model;
+    s32 i;
+
+    if (firstTime != 0) {
+        for (i = 0; i < count; i++) {
+            if ((p = NuStrIStr(params[i], str_ScriptParam_MinGroupSize)) != 0) {
+                minGroup = (s32)AIParamToFloat(packet, p + 13);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_MaxGroupSize)) != 0) {
+                maxGroup = (s32)AIParamToFloat(packet, p + 13);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_GroupSize)) != 0) {
+                groupSize = (s32)AIParamToFloat(packet, p + 10);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_Type)) != 0) {
+                p += 5;
+                if (lbl_80408D08 != 0 && lbl_80408D10 != 0) {
+                    model = lbl_80408D08(p);
+                    if (model != 0xff) {
+                        model = ((s32 (*)(s32))lbl_80408D10)(model);
+                        if (model != 0xff && nTypes < 10) {
+                            types[nTypes++] = model;
+                        }
+                    }
+                }
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_Script)) != 0) {
+                NuStrCpy(scriptName, p + 7);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_Distance)) != 0) {
+                dist = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_MinDX)) != 0) {
+                AIParamToFloat(packet, p + 6);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_MaxDX)) != 0) {
+                AIParamToFloat(packet, p + 6);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_MinDY)) != 0) {
+                AIParamToFloat(packet, p + 6);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_MaxDY)) != 0) {
+                AIParamToFloat(packet, p + 6);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_DX)) != 0) {
+                AIParamToFloat(packet, p + 3);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_DY)) != 0) {
+                AIParamToFloat(packet, p + 3);
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_SplineName)) != 0) {
+                spline = (void *)NuSplineFind(*(void **)((u8 *)lbl_80409410 + 0x1c0), p + 11);
+            } else if (NuStrIStr(params[i], str_ScriptDir_Backwards) != 0) {
+            } else if (NuStrIStr(params[i], str_ScriptFlag_Looping) != 0) {
+                looping = 1;
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_SpeedMultiplier)) != 0) {
+                hasSpeed = 1;
+                speedMul = AIParamToFloat(packet, p + 16);
+            }
+        }
+        if (minGroup >= 0 && maxGroup > minGroup) {
+            groupSize = minGroup + NuRand(0) % (maxGroup - minGroup);
+        }
+        if (spline != 0 && nTypes != 0 && groupSize > 0) {
+            f32 len;
+            model = types[NuRand(0) % nTypes];
+            if (groupSize > 1) {
+                NuRand(0);
+            }
+            len = fn_800D0030(spline, looping);
+            for (i = 0; i < groupSize; i++) {
+                u8 *obj;
+                fn_800CF3D8(spline, dist, &pos, &angle, 0, 0);
+                if (hasSpeed != 0 && speedMul < lbl_801AD500[0]) {
+                    angle = NuAngAdd(angle, 0x8000);
+                }
+                obj = (u8 *)AddDynamicCreature(model, &pos, angle, scriptName, 0, 0, 0);
+                if (obj != 0) {
+                    InitSplinePosition(obj + 0x69c, spline, len * dist, 0);
+                    *(struct gameaiscript_vec_s *)(obj + 0x9c) = lbl_803E04C4 =
+                        *(struct gameaiscript_vec_s *)(obj + 0x90) = *(struct gameaiscript_vec_s *)(obj + 0xa8) =
+                        *(struct gameaiscript_vec_s *)(obj + 0x6c) = *(struct gameaiscript_vec_s *)(obj + 0x6ac);
+                    ((struct gameaiscript_spline_f24_s *)(obj + 0xf24))->hasSpeed = hasSpeed;
+                    if (((struct gameaiscript_spline_f24_s *)(obj + 0xf24))->hasSpeed != 0) {
+                        *(f32 *)(obj + 0xf04) = speedMul;
+                        *(u32 *)(obj + 0xf24) |= 0x4000;
+                    }
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+#undef InitSplinePosition
+
+#define AIPathFindLocator ((void *(*)(void *, char *))AIPathFindLocator)
+extern void *fn_80013380(void *);
+extern void fn_800B01C4(void *, void *, f32, f32, f32, f32, s32, s32);
+extern char lbl_801AD8B4[];
+extern char lbl_801AD8BC[];
+extern char lbl_801AD8D0[];
+extern char lbl_801AD8DC[];
+extern char lbl_801AD8F0[];
+extern char lbl_801AD8FC[];
+extern char lbl_801AD90C[];
+extern char lbl_801AD91C[];
+extern char lbl_801AD92C[];
+extern char lbl_801AD938[];
+extern char lbl_801AD948[];
+extern char lbl_801AD950[];
+extern char lbl_801AD958[];
+extern char lbl_801AD960[];
+extern char lbl_801AD96C[];
+extern char lbl_801AD978[];
+extern char lbl_801AD984[];
+extern char lbl_801AD990[];
+extern char lbl_801AD99C[];
+extern char lbl_801AD9A8[];
+extern char lbl_801AD9B4[];
+extern char lbl_801AD9C0[];
+extern char lbl_801AD9D4[];
+
+s32 Action_CameraCut(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    f32 start = 0.0f;
+    f32 end = 3.4028234663852886e+38f;
+    struct gameaiscript_vec_s camPos = {3.4028234663852886e+38f, 3.4028234663852886e+38f, 3.4028234663852886e+38f};
+    struct gameaiscript_vec_s tgtPos = {3.4028234663852886e+38f, 3.4028234663852886e+38f, 3.4028234663852886e+38f};
+    struct gameaiscript_special_s special;
+    f32 blendOut = 0.0f;
+    f32 range = 1.0f;
+    s32 gotCam = 0;
+    s32 followTarget = 0;
+    s32 useCurCam = 0;
+    s32 freeplayFlag = 0;
+    f32 blendIn = 0.0f;
+    s32 borders = 1;
+    struct gameaiscript_vec_s *tgt = 0;
+    char *tgtLocator = 0;
+    char *tgtChar = 0;
+    char *tgtObj = 0;
+    char *camLocator = 0;
+    s32 rotY = 0;
+    s32 rotX = 0;
+    char *p;
+    s32 i;
+
+    if (firstTime != 0) {
+        for (i = 0; i < count; i++) {
+            if (NuStrICmp(lbl_801AD8B4, params[i]) == 0) {
+                fn_800B01C4(0, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0);
+                return 1;
+            } else if (NuStrICmp(lbl_801AD8BC, params[i]) == 0) {
+                useCurCam = 1;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD8D0)) != 0) {
+                start = AIParamToFloat(packet, p + 11);
+            } else if (NuStrICmp(lbl_801AD8DC, params[i]) == 0) {
+                end = 3.4028234663852886e+38f;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD8F0)) != 0) {
+                end = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD8FC)) != 0) {
+                blendIn = AIParamToFloat(packet, p + 14);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD90C)) != 0) {
+                blendOut = AIParamToFloat(packet, p + 15);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD91C)) != 0) {
+                tgtLocator = p + 12;
+            } else if ((p = NuStrIStr(params[i], str_ScriptParam_TgtCharacter)) != 0) {
+                tgtChar = p + 14;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD92C)) != 0) {
+                tgtObj = p + 8;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD938)) != 0) {
+                camLocator = p + 12;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD948)) != 0) {
+                range = AIParamToFloat(packet, p + 6);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD950)) != 0) {
+                rotY = (s32)AIParamToFloat(packet, p + 5);
+                rotY = (s32)((f32)rotY * (65536.0f / 360.0f));
+            } else if ((p = NuStrIStr(params[i], lbl_801AD958)) != 0) {
+                rotX = -(s32)AIParamToFloat(packet, p + 5);
+                rotX = (s32)((f32)rotX * (65536.0f / 360.0f));
+            } else if (NuStrICmp(params[i], lbl_801AD960) == 0) {
+                followTarget = 1;
+            } else if ((p = NuStrIStr(params[i], lbl_801AD96C)) != 0) {
+                camPos.x = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD978)) != 0) {
+                camPos.y = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD984)) != 0) {
+                camPos.z = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD990)) != 0) {
+                tgtPos.x = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD99C)) != 0) {
+                tgtPos.y = AIParamToFloat(packet, p + 9);
+            } else if ((p = NuStrIStr(params[i], lbl_801AD9A8)) != 0) {
+                tgtPos.z = AIParamToFloat(packet, p + 9);
+            } else if (NuStrICmp(lbl_801AD9B4, params[i]) == 0) {
+                borders = 0;
+            } else if (NuStrICmp(lbl_801AD9C0, params[i]) == 0) {
+                if (lbl_804091F8 != 0) {
+                    freeplayFlag = 1;
+                }
+            }
+        }
+        if (tgtLocator != 0) {
+            u8 *loc = (u8 *)AIPathFindLocator(sys, tgtLocator);
+            if (loc != 0) {
+                tgt = (struct gameaiscript_vec_s *)(loc + 0x10);
+            }
+        } else if (tgtChar != 0) {
+            u8 *obj;
+            if (packet != 0 && packet->owner != 0 && NuStrICmp(tgtChar, lbl_801AD9D4) == 0) {
+                obj = packet->owner->object;
+            } else {
+                obj = (u8 *)GetNamedGameObject(sys, tgtChar, freeplayFlag);
+            }
+            if (obj != 0) {
+                tgt = (struct gameaiscript_vec_s *)(obj + 0x90);
+            }
+        } else if (tgtObj != 0) {
+            if (NuSpecialFind(*(void **)((u8 *)lbl_80409410 + 0x1c0), &special, tgtObj, 1) != 0) {
+                tgt = (struct gameaiscript_vec_s *)fn_80013380(&special);
+            }
+        } else if (tgtPos.x != 3.4028234663852886e+38f && tgtPos.y != 3.4028234663852886e+38f && tgtPos.z != 3.4028234663852886e+38f) {
+            tgt = &tgtPos;
+        }
+        if (tgt != 0) {
+            if (camPos.x != 3.4028234663852886e+38f && camPos.y != 3.4028234663852886e+38f && camPos.z != 3.4028234663852886e+38f) {
+                gotCam = 1;
+            } else if (camLocator != 0) {
+                u8 *loc = (u8 *)AIPathFindLocator(sys, camLocator);
+                if (loc != 0) {
+                    camPos = *(struct gameaiscript_vec_s *)(loc + 0x10);
+                    gotCam = 1;
+                }
+            } else if (useCurCam != 0) {
+                u8 *mtx = (u8 *)NuCameraGetViewMtx();
+                if (mtx != 0) {
+                    camPos = *(struct gameaiscript_vec_s *)(mtx + 0x30);
+                    gotCam = 1;
+                }
+            }
+            if (gotCam == 0) {
+                camPos.x = 0.0f;
+                camPos.y = 0.0f;
+                camPos.z = range;
+                NuVecRotateX(&camPos, &camPos, rotX);
+                NuVecRotateY(&camPos, &camPos, rotY);
+                NuVecAdd(&camPos, &camPos, tgt);
+            }
+            fn_800B01C4(&camPos, tgt, start, end, blendIn, blendOut, followTarget, borders);
+        }
+    }
+    return 1;
+}
+#undef AIPathFindLocator
+
+struct gameaiscript_gtop_node_s {
+    u8 pad0[4];
+    struct gameaiscript_vec_s pos;
+    u8 pad10[4];
+    f32 radiusSq;
+    u8 pad18[0x13];
+    u8 flags;
+    u16 cnxIdx;
+    u8 pad2e[0x2a];
+};
+
+struct gameaiscript_gtop_cnx_s {
+    u8 node0;
+    u8 pad1[0x13];
+    s16 rot;
+    u8 pad16[6];
+    f32 len;
+    u8 pad20[8];
+};
+
+s32 Action_GoToOriginalPath(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    struct gameaiscript_vec_s diff;
+    u8 *pk = (u8 *)packet;
+    u8 *object = 0;
+    u8 *origPath;
+    struct gameaiscript_gtop_node_s *node;
+    struct gameaiscript_gtop_node_s *startNode = 0;
+    s32 i;
+
+    if (packet == 0 || packet->owner == 0 || (object = packet->owner->object) == 0)
+        return 1;
+    if (sys != 0 && *(void **)((u8 *)sys + 0xc) != 0 && (*(u32 *)(object + 0x208) & 0x400) != 0) {
+        origPath = *(u8 **)(*(u8 **)((u8 *)sys + 0x14) + pk[0xa6] * 0xa8 + 0x40);
+        if (firstTime != 0) {
+            if (*(u8 **)(pk + 0x10c) == origPath)
+                return 1;
+            for (i = 0; i < count; i++) {
+                if (lbl_80408D2C != 0)
+                    lbl_80408D2C(params[i], pk + 0xb0);
+            }
+            *(void **)(pk + 0x130) = 0;
+            if (*(void **)(pk + 0x10c) != 0
+                && *(void **)(pk + 0x10c) == *(void **)(*(u8 **)((u8 *)sys + 0xc) + 8)
+                && *(void **)(pk + 0x110) != 0
+                && (origPath[0x11] & 2) != 0) {
+                for (i = 0; i < origPath[0x10]; i++) {
+                    node = &((struct gameaiscript_gtop_node_s *)(*(void **)(origPath + 0x78)))[i];
+                    if (node->flags & 1) {
+                        struct gameaiscript_gtop_cnx_s *cnxs;
+                        struct gameaiscript_gtop_cnx_s *cnx;
+                        *(void **)(pk + 0xb4) = node;
+                        AISysCharacterSetPath(pk, *(s32 *)(pk + 0x10c));
+                        cnx = &((struct gameaiscript_gtop_cnx_s *)(*(void **)(*(u8 **)(*(u8 **)((u8 *)sys + 0xc) + 8) + 0x7c)))[node->cnxIdx];
+                        pk[0xd4] = 0;
+                        *(u32 *)(pk + 0xd8) |= 0x8000;
+                        *(void **)(pk + 0xd0) = cnx;
+                        startNode = &((struct gameaiscript_gtop_node_s *)(*(void **)(*(u8 **)(pk + 0xcc) + 0x78)))[cnx->node0];
+                        diff.x = node->pos.x - startNode->pos.x;
+                        diff.z = node->pos.z - startNode->pos.z;
+                        NuVecRotateY(&diff, &diff, -cnx->rot);
+                        *(f32 *)(pk + 0xdc) = diff.z / (*(struct gameaiscript_gtop_cnx_s **)(pk + 0xd0))->len;
+                        *(f32 *)(pk + 0xe0) = diff.x;
+                        AIMoveInstruction(pk, (s32)&node->pos, (s32)(pk + 0xcc), 1, 0.0f, *(f32 *)(pk + 0x134));
+                        return 0;
+                    }
+                }
+                return 1;
+            }
+        } else {
+            node = *(struct gameaiscript_gtop_node_s **)(pk + 0xb4);
+            if (node != 0) {
+                if (fn_8000CDFC((u8 *)packet->owner + 0x6c, &node->pos, &diff) < node->radiusSq) {
+                    memset(pk + 0x10c, 0, 0x18);
+                    AISysCharacterSetPath(pk, (s32)origPath);
+                    AISysCharacterSetPathCnx(pk, (u8 *)packet->owner + 0x6c, *(void **)(pk + 0x188), 0);
+                    return 1;
+                }
+                AIMoveInstruction(pk, (s32)&node->pos, (s32)(pk + 0xcc), 1, 0.0f, *(f32 *)(pk + 0x134));
+            }
+        }
+    }
+    return 0;
+}
+
+#define AIPathFindLocator ((void *(*)(void *, char *))AIPathFindLocator)
+extern char str_ScriptParam_Locator[];
+
+s32 Action_SetRespawnLocator(void *sys, void *process, struct gameaiscript_packet_s *packet,
+    char **params, s32 count, s32 firstTime, f32 time)
+{
+    void *locators[32] = {0};
+    s32 num = 0;
+    s32 i;
+
+    if (packet == 0 || packet->owner == 0 || packet->owner->object == 0 || firstTime == 0)
+        return 1;
+    *(void **)((u8 *)packet + 0x164) = *(void **)((u8 *)packet + 0xfc);
+    for (i = 0; i < count; i++) {
+        char *p = NuStrIStr(params[i], str_ScriptParam_Locator);
+        if (p != 0 && num < 32) {
+            if ((locators[num] = AIPathFindLocator(sys, p + 8)) != 0)
+                num++;
+        }
+    }
+    if (num != 0) {
+        i = NuRand(0) % num;
+        *(void **)((u8 *)packet + 0x164) = locators[i];
+    }
+    return 1;
+}
+#undef AIPathFindLocator

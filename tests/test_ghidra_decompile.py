@@ -104,3 +104,20 @@ class SeedTest(unittest.TestCase):
                 mock.patch.object(gd.subprocess, "run") as run:
             self.assertFalse(gd.auto_setup())
             run.assert_not_called()
+
+
+class PcContextTest(unittest.TestCase):
+    def test_prepares_anchor_tables_before_loading_pairs(self):
+        from unittest import mock
+
+        exe = Path("game.exe")
+        tables = object()
+        with mock.patch("pc_gc_anchors.find_exe", return_value=exe), \
+                mock.patch("pc_gc_anchors.ensure_tables", return_value=None) as prepare, \
+                mock.patch("pc_gc_body.load_tables", return_value=tables) as load, \
+                mock.patch.object(gd, "parse_symbols", return_value=[]):
+            calls = mock.Mock()
+            calls.attach_mock(prepare, "prepare")
+            calls.attach_mock(load, "load")
+            self.assertEqual(gd.pc_context(), (exe, tables, {}))
+            self.assertEqual(calls.mock_calls, [mock.call.prepare(exe), mock.call.load()])

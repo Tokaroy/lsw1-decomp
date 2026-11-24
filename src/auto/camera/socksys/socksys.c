@@ -1,4 +1,5 @@
 #include "types.h"
+#include "game/levels.h"
 #include "numath/numath.h"
 
 /* 0x10 bytes and up of a character animation record (OpenSaga CHARACTERANIM_s). */
@@ -176,8 +177,41 @@ void fn_800955A8(struct socksys_list_s* list, struct socksys_anim_s* anim)
     }
 }
 
-struct relation_object { u8 pad00[0x20c]; s32 flags; u8 pad210[0x81]; u8 index; };
+struct relation_object {
+    u32 word0;
+    u8 pad04[0x20c - 4];
+    union {
+        s32 flags;
+        struct {
+            u32 occupied : 1;
+            u32 : 31;
+        };
+    };
+    u8 pad210[0x81];
+    u8 index;
+};
 struct relation_pool { s32 stride; struct relation_object* objects; u64 masks[64]; };
+
+struct relation_object *fn_800950D0(struct relation_pool *pool)
+{
+    struct relation_object *object;
+    u32 index;
+
+    if (pool != NULL) {
+        object = pool->objects;
+        for (index = 0; index < 64; index++) {
+            if (object->occupied == 0) {
+                object->word0 = 0;
+                object->occupied = 1;
+                object->index = index;
+                return object;
+            }
+            object = (struct relation_object *)((u8 *)object + pool->stride);
+        }
+    }
+    return NULL;
+}
+
 extern u64 __ashldi3();
 extern void* memset();
 void fn_80095128(struct relation_pool* pool, struct relation_object* object)
@@ -187,16 +221,16 @@ void fn_80095128(struct relation_pool* pool, struct relation_object* object)
     s32 i;
     if (pool != NULL && object != NULL) {
         if (pool->masks != NULL) {
-            masks = pool->masks;
             p = pool->objects;
             for (i = 64; i != 0; i--) {
+                masks = pool->masks;
                 if (p->flags < 0) {
                     u64* mask = &masks[p->index];
                     *mask &= ~__ashldi3(1ULL, object->index);
                 }
                 p = (struct relation_object*)((u8*)p + pool->stride);
             }
-            *(u64*)((u8*)masks + ((s32)object->index << 3)) = 0;
+            pool->masks[object->index] = 0;
         }
         memset(object, 0, pool->stride);
     }
@@ -762,4 +796,90 @@ s16 FindAnimIX(struct socksys_named_anims_s *list, const char *name)
         }
     }
     return -1;
+}
+
+struct socksys_rotation_s {
+    u16 x;
+    u16 y;
+};
+
+struct socksys_rail_s {
+    struct nugspline_s *camera;
+    u8 pad04[0x28];
+    u16 segment_count;
+    u8 pad2e;
+    u8 flag2f;
+    u8 pad30[4];
+    struct socksys_rotation_s *camera_rotations;
+    struct socksys_rotation_s *midpoint_rotations;
+    u8 pad3c[0x104 - 0x3c];
+};
+
+struct socksys_rails_s {
+    struct socksys_rail_s *rails;
+};
+
+struct socksys_position_s {
+    u8 pad00;
+    s8 rail;
+    s16 segment;
+    f32 fraction;
+    u8 pad08[0x18];
+    struct socksys_rotation_s camera_rotation;
+    struct socksys_rotation_s midpoint_rotation;
+    s16 next_segment;
+    u8 pad2a[2];
+    f32 segment_position;
+    f32 normalized_position;
+};
+
+extern struct nuvec_s lbl_802C4EE8;
+
+static inline s32 socksys_rotation_delta(u16 from, u16 to)
+{
+    s32 delta = to - from;
+    if (delta > 0x8000) {
+        delta -= 0x10000;
+    } else if (delta < -0x8000) {
+        delta += 0x10000;
+    }
+    return delta;
+}
+
+static inline void socksys_point_on_segment(struct nuvec_s *out, struct nugspline_s *spline,
+                                            s32 first, s32 next, f32 fraction)
+{
+    struct nuvec_s *from = (struct nuvec_s *)(spline->pts + first * spline->ptsize);
+    struct nuvec_s *to = (struct nuvec_s *)(spline->pts + next * spline->ptsize);
+    out->x = (to->x - from->x) * fraction + from->x;
+    out->y = (to->y - from->y) * fraction + from->y;
+    out->z = (to->z - from->z) * fraction + from->z;
+}
+
+void fn_8009758C(struct socksys_rails_s *system, struct socksys_position_s *position)
+{
+    if (system != NULL) {
+        struct socksys_rail_s *rail = &system->rails[position->rail];
+        s32 segment = position->segment;
+        s32 next = position->next_segment;
+
+        socksys_point_on_segment(&lbl_802C4EE8, rail->camera, segment, next, position->fraction);
+
+        position->camera_rotation.x = (s32)(rail->camera_rotations[segment].x +
+            (f32)socksys_rotation_delta(rail->camera_rotations[segment].x, rail->camera_rotations[next].x)
+                * position->fraction);
+        position->camera_rotation.y = (s32)(rail->camera_rotations[segment].y +
+            (f32)socksys_rotation_delta(rail->camera_rotations[segment].y, rail->camera_rotations[next].y)
+                * position->fraction);
+        position->midpoint_rotation.x = (s32)(rail->midpoint_rotations[segment].x +
+            (f32)socksys_rotation_delta(rail->midpoint_rotations[segment].x, rail->midpoint_rotations[next].x)
+                * position->fraction);
+        position->midpoint_rotation.y = (s32)(rail->midpoint_rotations[segment].y +
+            (f32)socksys_rotation_delta(rail->midpoint_rotations[segment].y, rail->midpoint_rotations[next].y)
+                * position->fraction);
+
+        position->segment_position = (f32)position->segment + position->fraction;
+        position->normalized_position = position->segment_position /
+            (rail->flag2f ? (f32)(rail->segment_count + 1) : (f32)(s32)rail->segment_count);
+    }
 }
