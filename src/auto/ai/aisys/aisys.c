@@ -2836,3 +2836,150 @@ void AISysProcessCharacter(void *system, struct aiprocessowner_s *object,
         }
     }
 }
+
+extern s32 NuStrCmp(char *, char *);
+extern f32 lbl_8019CAA8[];
+
+struct aiscriptname_s { char unk0[0x18]; char *name; };
+struct aiinterruptproc_s {
+    char unk0[0x44];
+    u8 priority;
+    u8 id;
+    char unk46[2];
+    f32 value;
+    struct aiscriptname_s *script;
+};
+void fn_8008F3D4(void *processArg, char *name)
+{
+    struct aiinterruptproc_s *process = processArg;
+    if (process->script && NuStrCmp(name, process->script->name) == 0) {
+        process->priority = 0;
+        process->value = 0.0f;
+        process->id = 0;
+        process->script = 0;
+    }
+}
+
+struct aiwslot_s {
+    char unk0[0x8];
+    u8 id;
+    char unk9[0x47];
+    u32 busy : 1;
+    u32 flag1 : 1;
+    u32 flag2 : 1;
+    u32 pending : 1;
+    u32 rest : 28;
+    char unk54[0xd4];
+    f32 pos[3];
+};
+struct aiwentry_s {
+    char unk0[0x30];
+    struct aiwslot_s slots[16];
+};
+struct aiwslot_s *fn_8008F180(struct aiwentry_s *sys, s32 id, f32 x, f32 y, f32 z)
+{
+    s32 i;
+    struct aiwslot_s *slot;
+    if (sys && id) {
+        slot = sys->slots;
+        for (i = 0; i < 16; i++, slot++) {
+            if (!slot->busy) {
+                sys->slots[i].busy = 1;
+                slot->id = id;
+                slot->pos[0] = x;
+                slot->pos[1] = y;
+                slot->pos[2] = z;
+                slot->pending = 0;
+                return slot;
+            }
+        }
+    }
+    return 0;
+}
+
+struct aiantinode_s {
+    f32 pos[3];
+    f32 radius;
+    f32 minY;
+    char unk14[4];
+    f32 maxY;
+    char unk1C[0x2c];
+    u8 used;
+    u8 flags;
+    char unk4A[2];
+};
+
+struct aivec3_s { f32 x, y, z; };
+extern struct aiantinode_s lbl_801BC3F8[16];
+extern f32 lbl_80408CDC;
+
+struct aiantinode_s *fn_8008EFD0(struct aivec3_s *pos, f32 radius)
+{
+    s32 i;
+    for (i = 0; i < 16; i++) {
+        struct aiantinode_s *node = &lbl_801BC3F8[i];
+        if (!node->used) {
+            memset(node, 0, 0x4c);
+            node->used = 1;
+            node->flags |= 1;
+            *(struct aivec3_s *)node->pos = *pos;
+            node->radius = radius;
+            node->minY = node->pos[1] - lbl_80408CDC;
+            node->maxY = node->pos[1] + lbl_80408CDC;
+            return node;
+        }
+    }
+    return 0;
+}
+
+struct aiwalkitem_s {
+    char unk0[0x2d];
+    u8 active;
+    char unk2E[2];
+    u32 flag0 : 1;
+    u32 marked : 1;
+    u32 rest : 30;
+};
+struct aiwalklist_s {
+    u32 unk0;
+    char unk4[2];
+    u8 count;
+    char unk7[0x49];
+    u32 flag0 : 1;
+    u32 flag1 : 1;
+    u32 reverse : 1;
+    u32 enabled : 1;
+    u32 marked : 1;
+    u32 rest : 27;
+    struct aiwalkitem_s items[1];
+};
+typedef s32 (*aiwalkfn_t)(struct aiwalklist_s *, struct aiwalkitem_s *, struct aiwalkitem_s *, u32);
+void fn_8008CDE8(struct aiwalklist_s *list, aiwalkfn_t fn)
+{
+    struct aiwalkitem_s *prev = 0;
+    s32 marked = 0;
+    s32 i;
+    struct aiwalkitem_s *item;
+    if (fn && list->enabled) {
+        if (list->reverse) {
+            for (i = list->count - 1; i >= 0; i--) {
+                item = &list->items[i];
+                if (item->active) {
+                    if (fn(list, item, prev, list->unk0)) break;
+                    if (item->marked) marked = 1;
+                    prev = item;
+                }
+            }
+        } else {
+            for (i = 0; i < list->count; i++) {
+                item = &list->items[i];
+                if (item->active) {
+                    if (fn(list, item, prev, list->unk0)) break;
+                    if (item->marked) marked = 1;
+                    prev = item;
+                }
+            }
+        }
+    }
+    list->marked = marked;
+}

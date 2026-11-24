@@ -269,9 +269,10 @@ def collect(max_size: int = 0x200, min_size: int = 0, prefixes=(), jp_paired: bo
 
     unit_left: dict[str, int] = {}
     unit_of: dict[str, str | None] = {}
+    text_splits = tuple(vf.text_split_ranges())
     for name, addr, size in symbols:
         if size and name not in done and name not in verified:
-            u = vf.lookup_unit(addr)
+            u = vf.lookup_unit(addr, text_splits)
             unit_of[name] = u
             if u is not None:
                 unit_left[u] = unit_left.get(u, 0) + 1
@@ -285,7 +286,7 @@ def collect(max_size: int = 0x200, min_size: int = 0, prefixes=(), jp_paired: bo
                 continue
         elif name in done or name in verified:
             continue
-        unit = unit_of[name] if name in unit_of else vf.lookup_unit(addr)
+        unit = unit_of[name] if name in unit_of else vf.lookup_unit(addr, text_splits)
         if unit is None:
             skipped_unit += 1
             continue

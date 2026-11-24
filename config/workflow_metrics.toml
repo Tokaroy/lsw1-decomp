@@ -241,3 +241,21 @@ subtitle = "same drafts and budgets; native fixture wrong results 12/24 to 0/2; 
 before = "aisys-order-before-2026-11-14"
 after = "aisys-order-after-2026-11-14"
 metrics = ["compile_error_rate", "score_seconds"]
+
+# Controlled ProDG replay of the same fn_8007452C sweep draft in the same unit.
+[[cohort]]
+name = "apimenu-permute-externs-before"
+label = "Sweep permuter seed with conflicting externs"
+segments = [{ run = "t3-d00cc4c1-fc8803382a567720-1795481396", since = "2026-11-24T00:54:47.219Z", until = "2026-11-24T00:54:47.221Z" }]
+
+[[cohort]]
+name = "apimenu-permute-externs-after"
+label = "Sweep permuter seed using the scorer's splicing"
+segments = [{ run = "t3-d00cc4c1-fc8803382a567720-1795481396", since = "2026-11-24T00:54:47.581Z", until = "2026-11-24T00:54:47.583Z" }]
+
+[[comparison]]
+title = "Sweep permuter seed with unit declarations"
+subtitle = "same apimenu draft and compiler, one seed per run"
+before = "apimenu-permute-externs-before"
+after = "apimenu-permute-externs-after"
+metrics = ["compile_error_rate"]

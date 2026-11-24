@@ -188,6 +188,10 @@ def fix_prototypes(body: str, name: str, asm: str, unit_text: str, mac: bool = F
             arity[fn] = [(re.match(r"(f32|f64)\b(?!\s*\*)", p) or [p])[0] for p in raw[fn]]
             continue
         known = repo.get(fn) or (mac and mac_protos.proto(fn, ret)) or None
+        if known and known[0] == "void" and uses_result(code, fn):
+            # A tail-forwarding wrapper can be defined `void` in matched code although
+            # r3 still holds its callee's result; the draft reads it, so keep a value.
+            known = (ret if ret != "void" else "s32", known[1])
         if fn in variadic:
             if known and "..." in known[1]:
                 lines.append(f"{decl(known[0], fn)}({', '.join(known[1])});")
@@ -247,6 +251,15 @@ def fix_prototypes(body: str, name: str, asm: str, unit_text: str, mac: bool = F
     if extra:
         code = add_params(code, name, extra)
     return repair_indirect_prototypes("\n".join(lines) + ("\n" if lines else "") + code, asm)
+
+
+def uses_result(code: str, fn: str) -> bool:
+    """Whether some call to FN in CODE is part of an expression rather than a statement."""
+    for start, end, _ in call_sites(code, fn):
+        line = code[code.rfind("\n", 0, start) + 1:start]
+        if line.strip() or not re.match(r"\s*;", code[end:]):
+            return True
+    return False
 
 
 def expand_by_register(args: list[str], kinds: list[str] | None, params: list[str],
@@ -330,8 +343,15 @@ def adopt_own_prototype(body: str, name: str, unit_text: str) -> str:
     ptypes = [p.strip() for p in proto[2].split(",")] if proto[2].strip() not in ("", "void") else []
     if proto[2].strip() == "":
         return body  # `f()` says nothing about the arguments
-    names = [re.split(r"[\s*]+", p.strip())[-1] for p in head[2].split(",") if p.strip() not in ("", "void")]
-    params = []
+    heads = [p.strip() for p in head[2].split(",") if p.strip() not in ("", "void")]
+    # PowerPC passes each register class in its own sequence (r3.. and f1..), so the kth
+    # integer (float) type takes m2c's kth integer (float) name, not the kth name overall.
+    names = {cls: [re.split(r"[\s*]+", p)[-1] for p in heads if is_float_param(p) == cls]
+             for cls in (False, True)}
+    m2c_types = {re.split(r"[\s*]+", p)[-1]: p[:len(p) - len(re.split(r"[\s*]+", p)[-1])].strip()
+                 for p in heads}
+    seen = {False: 0, True: 0}
+    params, aliases = [], []
     for i, t in enumerate(ptypes):
         if t == "...":
             params.append(t)
@@ -341,10 +361,18 @@ def adopt_own_prototype(body: str, name: str, unit_text: str) -> str:
         if len(words) > 1 and words[-1] != "*" and words[-1] not in BUILTIN:
             words = words[:-1]
         typ = " ".join(words).replace("* *", "**")
-        nm = names[i] if i < len(names) else f"pad{i}"
+        cls = is_float_param(typ)
+        k, seen[cls] = seen[cls], seen[cls] + 1
+        nm = names[cls][k] if k < len(names[cls]) else f"{'fpad' if cls else 'pad'}{i}"
+        mt = m2c_types.get(nm, "")
+        if typ.replace(" ", "") == "void*" and mt.endswith("*") and mt.replace(" ", "") != "void*":
+            # A caller-derived `void *` would make the draft's dereferences fail; keep
+            # m2c's pointer type in a local of the same name (free at -O2).
+            aliases.append(f"    {mt}{nm} = {nm}_v;" if mt.endswith("*") else f"    {mt} {nm} = {nm}_v;")
+            nm = f"{nm}_v"
         params.append(f"{typ}{nm}" if typ.endswith("*") else f"{typ} {nm}")
     ret = proto[1].strip()
-    new = f"{decl(ret, name)}({', '.join(params) or 'void'}) {{"
+    new = f"{decl(ret, name)}({', '.join(params) or 'void'}) {{" + "".join("\n" + a for a in aliases)
     return body[:head.start()] + new + body[head.end():]
 
 

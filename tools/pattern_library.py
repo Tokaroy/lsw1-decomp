@@ -42,6 +42,9 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobs as shared_jobs  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 OUT = ROOT / "work" / "pattern_library"
@@ -618,7 +621,7 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="compile and index the corpora")
     b.add_argument("--corpus", choices=["re4", "lsw1", "all"], default="all")
-    b.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 4)
+    b.add_argument("-j", "--jobs", type=int, default=shared_jobs.default_jobs())
     s = sub.add_parser("similar", help="whole functions with the closest instruction shape")
     s.add_argument("name")
     s.add_argument("--top", type=int, default=8)

@@ -205,3 +205,216 @@ void GameLoadCharacterModels(s32 arg0, s32 arg1)
     sp8 = lbl_80408F80;
     APILoadCharacterModels(arg0, 0, &lbl_80408F7C, &sp8, 1);
 }
+
+u64 __lshrdi3();
+void fn_800868B4(void *, void *);
+s32 fn_8008F180(void *, u8, f32, f32, f32);
+void *fn_800A55D4(u8, s32);
+extern f32 lbl_8019FB9C[];
+struct CRLEVEL_s {
+    char pad0[8];
+    s32 count;
+    char padC[0xC];
+    void *sets;
+    char pad1C[4];
+    char *defs;
+};
+extern struct CRLEVEL_s *lbl_80408DF0;
+extern s32 lbl_80408FB4;
+
+void fn_800A4C78(char *arg0) {
+    s32 i;
+    s32 j;
+    s32 r27;
+    char *e;
+    char *obj;
+    u32 flags;
+    f32 zero;
+    struct CRLEVEL_s *lvl;
+
+    if (lbl_80408FB4 == 0 && arg0 != NULL) {
+        for (i = 0; i < *(s32 *)(arg0 + 0x10); i++) {
+            e = *(char **)(arg0 + 0x14) + i * 0xA8;
+            r27 = 0;
+            j = 0;
+            if (j < *(u8 *)(e + 0x5E)) {
+            zero = lbl_8019FB9C[0];
+            do {
+                if ((u32)((u64)*(u32 *)(e + 0x60) >> j) & 1) {
+                    obj = fn_800A55D4(*(u8 *)(e + 0x5D), 1);
+                    if (obj != NULL) {
+                        lvl = lbl_80408DF0;
+                        *(u32 *)(obj + 0x20C) &= ~0x80000;
+                        *(u32 *)(obj + 0x208) |= 0x400;
+                        if (*(u32 *)(lvl->defs + *(u8 *)(e + 0x5D) * 0x48 + 4) & 0x200) {
+                            *(u32 *)(obj + 0x208) |= 4;
+                        } else if (*(u32 *)(lvl->defs + *(u8 *)(e + 0x5D) * 0x48 + 4) & 4) {
+                            *(u32 *)(obj + 0x208) |= 1;
+                        }
+                        if (*(u32 *)(lbl_80408DF0->defs + *(u8 *)(e + 0x5D) * 0x48 + 4) & 0x400) {
+                            *(u32 *)(obj + 0x105C) |= 1;
+                        }
+                        if (*(u32 *)(lbl_80408DF0->defs + *(u8 *)(e + 0x5D) * 0x48 + 4) & 0x2000) {
+                            *(u32 *)(obj + 0x105C) |= 4;
+                        }
+                        *(s8 *)(obj + 0x346) = i;
+                        if (j == 0 && *(u8 *)(e + 0x5E) > 1 && *(f32 *)(e + 0x94) == zero) {
+                            r27 = fn_8008F180(arg0, *(u8 *)(e + 0x5F), *(f32 *)(e + 0x64), *(f32 *)(e + 0x68),
+                                *(f32 *)(*(char **)(*(char **)(obj + 0x64) + 0x20) + 0x18));
+                        }
+                        if (r27 != 0) {
+                            fn_800868B4((void *)r27, obj);
+                        }
+                        *(s32 *)(obj + 0x398) = *(s32 *)(e + 0x80);
+                        *(s32 *)(obj + 0x39C) = *(s32 *)(e + 0x84);
+                    }
+                }
+                j++;
+            } while (j < *(u8 *)(e + 0x5E));
+            }
+        }
+        *(u32 *)(arg0 + 0x1378) &= ~0x8000;
+    }
+}
+
+void ResetPlayerContexts(void *);
+void fn_80103EA8(void *);
+
+void fn_800A30A8(char *obj, s32 unused) {
+    s32 i;
+    f32 *p;
+
+    *(f32 *)(obj + 0x6C4) = 0.0f;
+    *(f32 *)(obj + 0x6E8) = 0.0f;
+    *(f32 *)(obj + 0x6C8) = 0.0f;
+    *(s16 *)(obj + 0x7AA) = 0;
+    *(s16 *)(obj + 0x7AC) = 0;
+    *(s16 *)(obj + 0x7AE) = 0;
+    ResetPlayerContexts(obj);
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x4) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x8) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0xC) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x10) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x14) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x18) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x1C) = 0;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x20) = 0;
+    *(f32 *)(*(char **)(obj + 0x61C) + 0x40) = 0.0f;
+    *(f32 *)(*(char **)(obj + 0x61C) + 0x44) = 0.0f;
+    *(f32 *)(*(char **)(obj + 0x61C) + 0x48) = 0.0f;
+    *(f32 *)(*(char **)(obj + 0x61C) + 0x4C) = 0.0f;
+    *(u32 *)(*(char **)(obj + 0x61C) + 0x58) &= ~0x4000;
+    *(u32 *)(*(char **)(obj + 0x61C) + 0x58) &= ~0x2000;
+    *(s32 *)(*(char **)(obj + 0x61C) + 0x54) = 0;
+    p = (f32 *)(obj + 0x130);
+    for (i = 0; i < 16; i++) {
+        *p = 2000000.0f;
+        p -= 5;
+    }
+    *(u8 *)(obj + 0x7C0) = 0;
+    *(f32 *)(obj + 0x720) = 0.0f;
+    *(f32 *)(obj + 0x738) = 0.0f;
+    *(f32 *)(obj + 0x750) = 0.0f;
+    *(f32 *)(obj + 0x730) = 0.0f;
+    *(f32 *)(obj + 0x73C) = 0.0f;
+    *(u8 *)(obj + 0x7CF) = 0xFF;
+    *(s32 *)(obj + 0x658) = 0;
+    *(s32 *)(obj + 0x65C) = 0;
+    *(s32 *)(obj + 0x660) = 0;
+    *(s32 *)(obj + 0x664) = 0;
+    *(s32 *)(obj + 0x694) = 0;
+    *(s32 *)(obj + 0x698) = 0;
+    *(s8 *)(obj + 0x7E6) = -1;
+    fn_80103EA8(obj);
+    *(f32 *)(obj + 0x824) = 0.0f;
+    *(u32 *)(obj + 0x7B0) &= ~0x80000000;
+    *(f32 *)(obj + 0x760) = 2000000.0f;
+    *(f32 *)(obj + 0x77C) = 0.0f;
+}
+
+s32 fn_800B9ED4(void);
+
+void ResetPlayerContexts(void *arg) {
+    char *obj = arg;
+
+    *(s8 *)(obj + 0x7E4) = -1;
+    *(f32 *)(obj + 0x704) = 0.0f;
+    *(f32 *)(obj + 0x754) = 0.0f;
+    if (*(u8 *)(obj + 0x7B4)) {
+        *(f32 *)(obj + 0x6BC) = 1.0f;
+    } else {
+        *(f32 *)(obj + 0x6BC) = 0.0f;
+    }
+    *(s8 *)(obj + 0x7DF) = -1;
+    *(s8 *)(obj + 0x7CC) = 0;
+    *(f32 *)(obj + 0x6AC) = 0.0f;
+    *(f32 *)(obj + 0x6B4) = 0.0f;
+    *(s8 *)(obj + 0x7BD) = 0;
+    *(s8 *)(obj + 0x7BE) = 0;
+    *(f32 *)(obj + 0x6EC) = 0.0f;
+    *(f32 *)(obj + 0x768) = 0.0f;
+    *(s32 *)(obj + 0x620) = 0;
+    *(u32 *)(*(char **)(obj + 0x61C) + 0x58) &= ~0x2000;
+    *(s32 *)(obj + 0x690) = 0;
+    *(s8 *)(obj + 0x7E3) = fn_800B9ED4() / 32768;
+    *(s16 *)(obj + 0x79A) = 0;
+    *(s8 *)(obj + 0x7CB) = 0;
+    *(f32 *)(obj + 0x594) = 1000.0f;
+    *(f32 *)(obj + 0x6E0) = 0.0f;
+    *(s16 *)(obj + 0x796) = -1;
+    *(s8 *)(obj + 0x7E2) = -1;
+    *(s16 *)(obj + 0x798) = -1;
+    *(f32 *)(obj + 0x71C) = 0.0f;
+    *(s16 *)(obj + 0x79E) = -1;
+    *(f32 *)(obj + 0x6B0) = 0.0f;
+    *(s16 *)(obj + 0x7A0) = -1;
+    *(s16 *)(obj + 0x7A2) = -1;
+    *(f32 *)(obj + 0x758) = 0.0f;
+    *(f32 *)(obj + 0x75C) = 0.0f;
+    *(f32 *)(obj + 0x774) = 0.0f;
+    *(f32 *)(obj + 0x778) = 0.0f;
+}
+
+struct CRVEC_s { f32 x, y, z; };
+extern struct CRVEC_s lbl_801D5964;
+extern f32 lbl_8040902C;
+void fn_80095558(void *, s32);
+void fn_800955A8(void *, void *);
+void fn_800ABC50(void *);
+void fn_800ABEB0(void *, s32);
+
+struct CRPKT_s {
+    char pad0[0x144];
+    f32 f144;
+    char pad148[0x6F8 - 0x148];
+    f32 f6F8;
+    char pad6FC[0x764 - 0x6FC];
+    f32 f764;
+    char pad768[0x7DD - 0x768];
+    u8 b7DD;
+    char pad7DE[0x7E6 - 0x7DE];
+    u8 b7E6;
+};
+void fn_800A3224(char *obj) {
+    fn_800A30A8(*(char **)(obj + 0xEEC), *(s32 *)(obj + 0x64));
+    *(struct CRVEC_s *)(obj + 0x210) = lbl_801D5964;
+    (*(struct CRPKT_s **)(obj + 0xEEC))->f6F8 = 0.0f;
+    *(f32 *)(*(char **)(obj + 0xEEC) + 0x764) = lbl_8040902C;
+    *(u32 *)(obj + 0xF28) |= 0x100000;
+    if (*(u32 *)(obj + 0x208) & 0x400) {
+        *(u8 *)(*(char **)(obj + 0xEEC) + 0x7E6) = 0;
+    }
+    fn_800ABEB0(obj, 2);
+    fn_80095558(obj + 8, 1);
+    fn_800955A8(*(void **)(obj + 0x60), obj + 8);
+    *(u8 *)(obj + 0x286) = 0;
+    *(u8 *)(obj + 0x285) = 0;
+    fn_800ABC50(obj);
+    *(f32 *)(obj + 0x102C) = 0.0f;
+    *(u32 *)(obj + 0xF28) &= ~0x10;
+    *(f32 *)(obj + 0x1044) = 0.0f;
+    *(u8 *)(*(char **)(obj + 0xEEC) + 0x7DD) = 0;
+    *(f32 *)(*(char **)(obj + 0xEEC) + 0x144) = 1.0f;
+    *(f32 *)(obj + 0x1E8) = 0.0f;
+    *(u32 *)(obj + 0x20C) &= ~0x40000;
+}

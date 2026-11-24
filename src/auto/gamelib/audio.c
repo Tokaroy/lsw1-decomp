@@ -1,4 +1,5 @@
 #include "types.h"
+#include "nu3dx/nu3dx.h"
 
 extern s16 lbl_801BB44C[];
 extern s16 lbl_801BB452[];
@@ -342,4 +343,152 @@ void fn_8006DCD4(const char *name, void *pos) {
 
 void fn_8006DE5C(s32 id, void *pos) {
     fn_8006B328(id, pos, lbl_801986D4[0], lbl_801986D4[0]);
+}
+
+extern void fn_80021738(struct nuhspecial_s *, struct nugscn_s *, s32);
+extern s32 fn_800130F4(struct nuhspecial_s *);
+extern s32 fn_800135B0(struct nuhspecial_s *);
+
+s32 fn_8006624C(s32 index, struct nugscn_s *scene)
+{
+    struct nuhspecial_s special;
+
+    fn_80021738(&special, scene, index);
+    if (fn_800130F4(&special))
+        return fn_800135B0(&special);
+    return -1;
+}
+
+extern s32 fn_8002171C(struct nugscn_s *);
+extern char *NuSpecialGetInstAnim(struct nuhspecial_s *);
+
+s32 fn_80066294(const char *name, struct nugscn_s *scene)
+{
+    struct nuhspecial_s special;
+    s32 i;
+
+    if (scene != NULL) {
+        for (i = 0; i < fn_8002171C(scene); i++) {
+            fn_80021738(&special, scene, i);
+            if (fn_800130F4(&special) &&
+                fn_800076E4(NuSpecialGetInstAnim(&special), name, 0x13) == 0)
+                return i;
+        }
+    }
+    return -1;
+}
+
+extern s32 lbl_80399D8C[8];
+extern s32 lbl_80399D60[8];
+extern s32 lbl_80399D40[8];
+
+void fn_8006638C(s32 index)
+{
+    if (lbl_80399D8C[index] && lbl_80399D60[index] && !lbl_80399D40[index])
+        lbl_80399D40[index] = 1;
+}
+
+void fn_800663D8(s32 index)
+{
+    lbl_80399D40[index] = 0;
+}
+
+struct AudioSceneObject {
+    s32 id;
+    u8 pad4[0x2d0 - 4];
+    s8 group;
+    u8 pad2D1[3];
+};
+
+struct AudioPath {
+    s32 id;
+    u8 pad4[0x1c - 4];
+    s32 unk1C;
+    s32 pointCount;
+    s32 unk24;
+    u8 pad28[0x2c - 0x28];
+    struct nuvec_s position;
+    u8 pad38[0x13c - 0x38];
+    char slotNames[8][16];
+    s32 tags[8];
+    s32 unk1DC[8];
+    s32 unk1FC[8];
+    struct nuivec_s offsets[8];
+    u8 pad27C[0x2a0 - 0x27c];
+    char pointNames[8][16];
+    s32 pointModes[16];
+    f32 pointTimes[8];
+    struct nuvec_s points[8];
+    u8 pad3E0[0x3ec - 0x3e0];
+};
+
+struct AudioAnimState {
+    u8 pad0[0x30];
+    struct nuvec_s position;
+    u8 pad3C[8];
+    f32 unk44;
+    u8 pad48[4];
+    f32 time;
+    u32 flags;
+};
+
+struct AudioPathSlot {
+    struct numtx_s matrix;
+    s16 id;
+    u8 pad42[2];
+    u32 flags;
+    struct AudioAnimState *animation;
+    u8 pad4C[4];
+};
+
+extern struct AudioSceneObject lbl_8038E840[64];
+extern struct AudioPath lbl_8039B1AC[64];
+extern struct AudioPathSlot lbl_80399DAC[64];
+
+
+extern s32 lbl_8040846C;
+extern s32 lbl_8040AECC;
+
+void fn_80066328(void)
+{
+    s32 i;
+
+    for (i = 63; i >= 0; i--)
+        lbl_8038E840[i].id = -1;
+
+    lbl_8040AECC = 0;
+    lbl_8040846C = 0;
+    for (i = 0; i < 8; i++) {
+        lbl_80399D8C[i] = 0;
+        lbl_80399D40[i] = 0;
+    }
+}
+
+extern char *strcpy(char *, const char *);
+
+void fn_80068CB8(s32 index, s32 i)
+{
+
+    for (; i < lbl_8039B1AC[index].pointCount - 1; i++) {
+        lbl_8039B1AC[index].pointModes[i] = lbl_8039B1AC[index].pointModes[i + 1];
+        lbl_8039B1AC[index].pointTimes[i] = lbl_8039B1AC[index].pointTimes[i + 1];
+        lbl_8039B1AC[index].points[i] = lbl_8039B1AC[index].points[i + 1];
+        strcpy(lbl_8039B1AC[index].pointNames[i], lbl_8039B1AC[index].pointNames[i + 1]);
+
+    }
+    --lbl_8039B1AC[index].pointCount;
+}
+
+void fn_80068DE0(s32 index, s32 i)
+{
+
+    for (; i < lbl_8039B1AC[index].unk1C - 1; i++) {
+        lbl_8039B1AC[index].tags[i] = lbl_8039B1AC[index].tags[i + 1];
+        lbl_8039B1AC[index].unk1DC[i] = lbl_8039B1AC[index].unk1DC[i + 1];
+        lbl_8039B1AC[index].unk1FC[i] = lbl_8039B1AC[index].unk1FC[i + 1];
+        lbl_8039B1AC[index].offsets[i] = lbl_8039B1AC[index].offsets[i + 1];
+        strcpy(lbl_8039B1AC[index].slotNames[i], lbl_8039B1AC[index].slotNames[i + 1]);
+
+    }
+    --lbl_8039B1AC[index].unk1C;
 }

@@ -104,22 +104,6 @@ def load_tables(out_dir: Path = OUT_DIR, globals_doc: Path = GLOBALS_DOC) -> Tab
     return t
 
 
-def ensure_tables(exe: Path) -> str | None:
-    """Generate build/pc_analysis tables when missing or older than the committed pairs.
-
-    Returns None when ready, else a one-line reason."""
-    needed = [OUT_DIR / "gc_pc_anchors.tsv", OUT_DIR / "pc_functions.tsv"]
-    seed = pc_gc_anchors.CONFIRMED.stat().st_mtime if pc_gc_anchors.CONFIRMED.exists() else 0
-    if all(p.exists() and p.stat().st_mtime >= seed for p in needed):
-        return None
-    result = subprocess.run([sys.executable, str(ROOT / "tools/pc_gc_anchors.py"), "--exe", str(exe)],
-                            cwd=ROOT, capture_output=True, text=True)
-    if result.returncode != 0 or not all(p.exists() for p in needed):
-        return ("`python3 tools/pc_gc_anchors.py` failed: "
-                + (result.stderr.strip().splitlines() or ["no output"])[-1])
-    return None
-
-
 class Image:
     """Read-only view of the PE file: sections, imports, strings and constants."""
 
@@ -651,7 +635,7 @@ def body_for(target: str, exe: Path | None = None) -> tuple[str | None, str]:
         return None, "no x86 body: the Japanese PC exe is not present here or in the primary checkout"
     if shutil.which("objdump") is None:
         return None, "no x86 body: system objdump (binutils with pei-i386) is not installed"
-    problem = ensure_tables(exe)
+    problem = pc_gc_anchors.ensure_tables(exe)
     if problem:
         return None, f"no x86 body: {problem}"
     from string_xrefs import SYMBOLS, parse_symbols

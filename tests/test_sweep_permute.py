@@ -18,12 +18,34 @@ class SweepPermuteTest(unittest.TestCase):
         scope = {"functions": ["e"], "stage": ["a", "e"]}  # the plan item first, then its stage
         self.assertEqual([r["name"] for r in sp.queue(rows, 0.9, 10, scope)], ["e", "a"])
 
-    def test_splice_replaces_or_appends(self):
+    def test_extract_definition(self):
         text = "int g;\nvoid f(void) {\n    g = 1;\n}\nvoid h(void) {}\n"
-        self.assertEqual(sp.splice(text, "f", "void f(void) {\n    g = 2;\n}\n"),
-                         "int g;\nvoid f(void) {\n    g = 2;\n}\nvoid h(void) {}\n")
-        self.assertTrue(sp.splice(text, "k", "void k(void) {}").endswith("void h(void) {}\n\nvoid k(void) {}\n"))
         self.assertEqual(sp.definition(text, "f"), "void f(void) {\n    g = 1;\n}")
+
+    def test_permuter_seed_uses_unit_extern(self):
+        from unittest import mock
+        from subprocess import CompletedProcess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "unit.c"
+            unit_decl = "extern char entries[];\n"
+            source.write_text(unit_decl)
+            sweep = root / "sweep"
+            (sweep / "f").mkdir(parents=True)
+            definition = "void f(void) { entries[0] = 1; }"
+            (sweep / "f" / "sweep_draft.c").write_text("extern int entries[];\n" + definition + "\n")
+
+            def check_seed(cmd, **kwargs):
+                seed = Path(cmd[cmd.index("--source") + 1]).read_text()
+                self.assertEqual(seed, unit_decl + "\n" + definition + "\n")
+                return CompletedProcess(cmd, 1, stderr="stop after checking seed")
+
+            with mock.patch.object(sp, "ROOT", root), mock.patch.object(sp.sweep, "OUT", sweep), \
+                    mock.patch.object(sp.subprocess, "run", side_effect=check_seed) as run:
+                sp.permute_one({"name": "f", "source": "unit.c", "unit": "unit",
+                                "size": 4, "exact": 1, "target": 1}, 1, 1)
+                run.assert_called_once()
 
     def test_best_output_picks_lowest_score(self):
         with tempfile.TemporaryDirectory() as tmp:

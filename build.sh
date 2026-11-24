@@ -22,7 +22,9 @@ python3 configure.py
 if [[ -L build/tools && -z ${LSW1_REFRESH:-} ]]; then
     python3 tools/ninja_mark_tools.py --primary "$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
 fi
-ninja build/GL5E4F/report.json
-ninja build/GL5E4F/main.dol
+# Share the cores with sibling worktrees (LSW1_JOBS overrides; see tools/jobs.py).
+JOBS=$(python3 tools/jobs.py)
+ninja -j "$JOBS" build/GL5E4F/report.json
+ninja -j "$JOBS" build/GL5E4F/main.dol
 python3 tools/dol_compare.py build/GL5E4F/main.dol orig/GL5E4F/sys/main.dol --linked-units
 python3 tools/matching_progress.py

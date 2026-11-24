@@ -1057,3 +1057,29 @@ s32 fn_8009CD4C(char *name, char *out) {
     }
     return 0;
 }
+
+struct main_object_context_s {
+    u8 pad0[0x6c];
+    u32 flags;
+};
+
+struct main_object_slot_s {
+    struct main_object_context_s *obj;
+    u8 pad4[0x20];
+    u8 state;
+    u8 pad25[0x37];
+};
+
+s32 fn_800A1B50(s32 index, s32 checkState)
+{
+    s32 mode, result;
+
+    if ((checkState && !((struct main_object_slot_s *)((u8 *)lbl_803D9A58 + index * sizeof(struct main_object_slot_s)))->state)
+        || (((struct main_object_context_s *)lbl_803D9A58[index * (sizeof(struct main_object_slot_s) / sizeof(s32))])->flags & 0x20000000)
+        || lbl_80408FE0 != 0
+        || (mode = fn_800B2ED4(), mode == 1)
+        || (result = 1, mode == 0x1a)) {
+        result = 0;
+    }
+    return result;
+}

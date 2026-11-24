@@ -1,7 +1,12 @@
+import struct
 import sys
 import tempfile
+import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from subprocess import CompletedProcess
+from threading import Barrier
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
@@ -10,6 +15,32 @@ import pc_gc_anchors  # noqa: E402
 import pc_gc_features  # noqa: E402
 import pc_gc_splits  # noqa: E402
 from pc_gc_features import Features  # noqa: E402
+
+
+class EnsureTablesTest(unittest.TestCase):
+    def test_parallel_task_packs_share_one_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "pc_analysis"
+            seed = Path(directory) / "pc_jp_pairs.tsv"
+            seed.touch()
+            start = Barrier(4)
+
+            def generate(*args, **kwargs):
+                time.sleep(0.05)
+                for name in ("gc_pc_anchors.tsv", "pc_functions.tsv"):
+                    (out_dir / name).touch()
+                return CompletedProcess(args, 0, "", "")
+
+            def prepare(_):
+                start.wait()
+                return pc_gc_anchors.ensure_tables(Path("game.exe"))
+
+            with mock.patch.object(pc_gc_anchors, "OUT_DIR", out_dir), \
+                    mock.patch.object(pc_gc_anchors, "CONFIRMED", seed), \
+                    mock.patch.object(pc_gc_anchors.subprocess, "run", side_effect=generate) as run, \
+                    ThreadPoolExecutor(max_workers=4) as pool:
+                self.assertEqual(list(pool.map(prepare, range(4))), [None] * 4)
+                run.assert_called_once()
 
 
 def make_pairer(gc_calls=None, pc_calls=None, gc_addrs=None, gc_sizes=None, gc_strs=None, pc_strs=None,
@@ -135,6 +166,18 @@ class X86ListingTest(unittest.TestCase):
                                                 (0x646000, 0x650000), read)
         self.assertEqual(refs, {0x401000: [0x750000], 0x401020: [0x750000]})  # jmp operand skipped
         self.assertEqual(floats, {0x401000: [1.0]})
+
+    def test_string_reference_scan_keeps_unaligned_and_final_words(self):
+        text = 0x401000
+        strings = {0x650040: "last", 0x650010: "first",
+                   0x650020: "duplicate", 0x650030: "duplicate"}
+        code = (b"\x90" + struct.pack("<II", 0x650010, 0x650020)
+                + struct.pack("<II", 0x650010, 0x650040))
+
+        refs = pc_gc_anchors.pc_string_owners(code, text, strings, [text, text + 9])
+
+        self.assertEqual(list(refs), ["last", "first"])
+        self.assertEqual(refs, {"last": {text + 9}, "first": {text, text + 9}})
 
 
 class SplitLeadsTest(unittest.TestCase):

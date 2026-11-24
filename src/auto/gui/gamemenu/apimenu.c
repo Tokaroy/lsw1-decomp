@@ -1,5 +1,6 @@
 #include "types.h"
 #include "game/gamemenu.h"
+#include "numath/numath.h"
 
 extern s32 lbl_8040889C;
 
@@ -41,7 +42,41 @@ s32 PARTLookupType(char *name) {
     return -1;
 }
 
-typedef struct { u8 pad[0xC]; s32 id; u8 rest[0x6C - 0x10]; } Entry6C;
+typedef struct {
+    char name[16];
+    s16 effectIds[8];
+    u8 unk20[0x2A - 0x20];
+    s8 page;
+    u8 unk2B[0x38 - 0x2B];
+    f32 emissionRate;
+    u8 unk3C[0x58 - 0x3C];
+    f32 emissionPeriod;
+    f32 emissionPeriodRandom;
+    f32 emissionPause;
+    f32 emissionPauseRandom;
+    u8 unk64[0xB0 - 0x68];
+} PartType;
+
+typedef struct {
+    struct nuvec_s position;
+    s32 id;
+    char name[16];
+    f32 lastEmission;
+    f32 periodStart;
+    f32 periodEnd;
+    s16 rotation[3];
+    u8 unk32;
+    u8 unk33;
+    s32 shotsRemaining;
+    f32 unk38;
+    u8 unk3C;
+    u8 unk3D;
+    u8 unk3E[2];
+    f32 unk40;
+    s16 unk44;
+    s16 unk46;
+    u8 unk48[0x6C - 0x48];
+} Entry6C;
 extern Entry6C lbl_803D8280[];
 extern s32 lbl_804088AC;
 
@@ -552,6 +587,160 @@ void fn_800783B8(void *arg0) {
         fn_800769B4(arg0, lbl_80408B18, lbl_80408A57);
         if (lbl_80408A3C == 2) {
             fn_800769B4(arg0, lbl_80408B80, lbl_80408A57);
+        }
+    }
+}
+
+extern void *memset(void *, int, u32);
+extern void *lbl_8040AEFC;
+extern s32 lbl_80408888;
+extern s32 lbl_8040888C;
+
+void fn_80074840(void)
+{
+    if (lbl_8040AEFC != NULL) {
+        memset(lbl_8040AEFC, 0, lbl_80408888 * 0x1F4);
+    }
+    lbl_8040888C = 0;
+}
+
+typedef struct Part {
+    u8 unk000[0x30];
+    struct nuvec_s position;
+    u8 unk03C[0x8C - 0x3C];
+    struct nuvec_s boundsMin;
+    struct nuvec_s boundsMax;
+    u8 unk0A4[0xD4 - 0xA4];
+    void *owner;
+    u8 unk0D8[0xDC - 0xD8];
+    f32 radius;
+    u8 unk0E0[0x104 - 0xE0];
+    u32 flags;
+    u8 unk108[0x114 - 0x108];
+    s32 rotationRates[2];
+    u8 unk11C[0x126 - 0x11C];
+    u8 rotationAxes[2];
+    u32 state;
+    u8 unk12C[0x1A8 - 0x12C];
+    void (*kill)(struct Part *, s32);
+    u8 unk1AC[0x1C0 - 0x1AC];
+    s32 *unk1C0;
+    s32 *unk1C4;
+    u8 unk1C8[0x1DC - 0x1C8];
+    s32 unk1DC;
+    u8 unk1E0[0x1F4 - 0x1E0];
+} Part;
+
+s32 fn_8005EB80(s32 *);
+void fn_800718FC(s32);
+void fn_80063E14(s32 *, s32, struct nuvec_s *, s32);
+
+void fn_80074880(Part *part, s32 reason)
+{
+    part->state &= 0x7FFFFFFF;
+    if ((part->flags & 0x20000) != 0 && part->unk1C0 != NULL) {
+        fn_8005EB80(part->unk1C0);
+    }
+    if (part->unk1C4 != NULL) {
+        fn_800718FC(*part->unk1C4);
+        *part->unk1C4 = -1;
+    }
+    if (part->unk1DC != -1) {
+        s32 handle = -1;
+
+        fn_80063E14(&handle, part->unk1DC, &part->position, 1);
+    }
+    if (part->kill != NULL) {
+        part->kill(part, reason);
+    }
+}
+
+u32 NuRandInt(void);
+f32 fn_8000C038(void);
+
+void fn_80074934(Part *part)
+{
+    s32 i = 0;
+
+    do {
+        do {
+            part->rotationAxes[i] = (NuRandInt() % 65535U) / 21845U + 1;
+        } while (i == 1 && part->rotationAxes[1] == part->rotationAxes[0]);
+        part->rotationRates[i] = (s32)((2.0f * fn_8000C038() - 1.0f) * 65536.0f);
+        i++;
+    } while (i < 2);
+}
+
+s32 fn_80074C00(char *name, s32 page)
+{
+    s32 i;
+
+    if (*name == 0) {
+        return -1;
+    }
+    if ((u32)(page - 1) <= 6) {
+        for (i = 0; i < 64; i++) {
+            PartType *type = &((PartType *)lbl_803D5680)[i];
+
+            if (type->page == page && NuStrNCmp(name, type->name, 16) == 0) {
+                return i;
+            }
+        }
+    }
+    for (i = 0; i < 64; i++) {
+        PartType *type = &((PartType *)lbl_803D5680)[i];
+
+        if (type->page == 0 && NuStrNCmp(name, type->name, 16) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+f32 NuRandIntSeeded(s32 *);
+extern s32 lbl_804088A0;
+extern f32 lbl_804088A4;
+
+void fn_8007452C(s32 index, f32 offset)
+{
+    Entry6C *emitter;
+    PartType *type;
+    f32 interval;
+
+    if (index != -1) {
+        emitter = &lbl_803D8280[index];
+        if (emitter->id != -1) {
+            type = &((PartType *)lbl_803D5680)[emitter->id];
+            if (type->emissionPeriodRandom != 0.0f || type->emissionPauseRandom != 0.0f) {
+                emitter->periodStart = lbl_804088A4;
+                emitter->periodEnd = NuRandIntSeeded(&lbl_804088A0) * type->emissionPeriodRandom
+                                   + (emitter->periodStart + type->emissionPeriod);
+            } else {
+                f32 duration = type->emissionPeriod;
+                f32 cycle = duration + type->emissionPause;
+                f32 time = lbl_804088A4;
+                f32 start = cycle * (f32)(s32)(time / cycle) + offset;
+                f32 end = start + duration;
+
+                emitter->periodStart = start;
+                emitter->periodEnd = emitter->periodStart + duration;
+                if (lbl_804088A4 > start && lbl_804088A4 > end) {
+                    do {
+                        if (emitter->periodStart >= emitter->periodEnd) {
+                            emitter->periodEnd = emitter->periodStart + type->emissionPeriod;
+                        } else {
+                            emitter->periodStart = emitter->periodEnd + type->emissionPause;
+                        }
+                    } while (lbl_804088A4 > emitter->periodStart && lbl_804088A4 > emitter->periodEnd);
+                }
+            }
+            interval = 1.0f / type->emissionRate;
+            if (emitter->periodEnd < lbl_804088A4) {
+                emitter->lastEmission = emitter->periodStart - interval;
+            } else {
+                emitter->lastEmission = interval * (f32)(s32)(lbl_804088A4 / interval);
+            }
+            emitter->unk38 = lbl_804088A4;
         }
     }
 }

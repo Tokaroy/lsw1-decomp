@@ -26,6 +26,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobs as shared_jobs  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "GL5E4F"
 REPORT = ROOT / f"build/{VERSION}/report.json"
@@ -56,20 +59,20 @@ def main() -> None:
     only = set(args.only.split(",")) if args.only else None
 
     # 1. compile
-    r = run(["ninja", src_obj])
+    r = run(shared_jobs.ninja(src_obj))
     if r.returncode != 0:
         print(f"{RED}compile failed:{RST}\n{r.stdout}{r.stderr}")
         sys.exit(1)
 
     # 2. target object (produced by `dtk dol split`; re-runs if symbols/splits changed)
     tgt_obj = f"build/{VERSION}/obj/{unit}.o"
-    r = run(["ninja", tgt_obj])
+    r = run(shared_jobs.ninja(tgt_obj))
     if r.returncode != 0:
         print(f"{RED}target split failed:{RST}\n{r.stdout}{r.stderr}")
         sys.exit(1)
 
     # 3. report
-    r = run(["ninja", str(REPORT.relative_to(ROOT))])
+    r = run(shared_jobs.ninja(str(REPORT.relative_to(ROOT))))
     if r.returncode != 0:
         print(f"{RED}report failed:{RST}\n{r.stdout}{r.stderr}")
         sys.exit(1)

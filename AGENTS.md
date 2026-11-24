@@ -24,7 +24,12 @@ from doldecomp/dolsdk2004. CrashWOC's CodeWarrior game code generation does not 
   [matching brief](docs/sprint_workflow.md#matching-brief).
 - [Sprint tools](docs/sprint_workflow.md) cover target selection, ownership detection,
   queue accounting and verification. Choose scope and search effort for the task;
-  T3 owns orchestration and continuation.
+  T3 owns orchestration and continuation. **Keep child concurrency small**: Claude and
+  Codex here run on $20/month plans with tight short-window/session limits, so parent
+  agents must not launch large bursts of children at once. Start with 1 child per
+  provider, wait for a verified checkpoint before adding at most one more (cap at
+  1–2 concurrent children per provider unless Ellie explicitly asks otherwise), and
+  stop launches on that provider at the first rate-limit error.
 - Matching: follow the [quickstart](docs/matching_quickstart.md) for bootstrap,
   target selection, scoring and handoff, and [C matching](docs/code_matching_workflow.md)
   for strict verification and promotion. SDK work uses [SDK import](docs/sdk_import.md#importing-a-unit-quickly).

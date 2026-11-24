@@ -54,7 +54,7 @@ median of 48 distinct candidates per park.
 | 15 | [Strict-only functions were counted as plan work](#15-strict-only-functions-were-counted-as-plan-work) | functions left (targeting) | fixed: plan functions left 1,306 → 1,147 |
 | 16 | [Children got single functions, not items](#16-children-got-single-functions-not-items) | functions per child | fixed: `plan.py --batch N` and brief rule 6 |
 | 17 | [Plateaued functions kept being scored](#17-plateaued-functions-kept-being-scored) | matched bytes per child-hour | fixed: `score_fn.py` prints a PLATEAU notice |
-| 18 | [Body splicing dropped declarations needed before the new use](#18-body-splicing-dropped-declarations-needed-before-the-new-use) | compile-error rate | fixed: controlled evaluator replay 1/1 → 0/1 errors; two regression tests fail before the fix |
+| 18 | [Body splicing dropped declarations needed before the new use](#18-body-splicing-dropped-declarations-needed-before-the-new-use) | compile-error rate | fixed: evaluator replay 1/1 → 0/1 errors; sweep permuter seed replay 1/1 → 0/1 errors |
 | 19 | [Fresh worktrees had no Ghidra project](#19-fresh-worktrees-had-no-ghidra-project) | start to first compiling score | fixed: `draft_fn.py` seeds the project; worktrees with `ghidra.c` 0 → all |
 | 20 | [Drafts lost the unit's types](#20-drafts-lost-the-units-types) | compile-error rate; exact-instruction gain | fixed: drafts compile 30/60 → 54/60 |
 | 21 | [Rodata float labels hide literal pools](#21-rodata-float-labels-hide-literal-pools) | exact-instruction gain (sweep) | fixed: `float_literals` repair; nuportal sweep +9 exact over 5 functions |
@@ -66,6 +66,7 @@ median of 48 distinct candidates per park.
 | 27 | [Declaration search permuted assignments](#27-declaration-search-permuted-assignments) | compile-error rate | fixed: same NuMtlRender seed, 96/279 errors (34.4%) → 0/183; no additional match |
 | 28 | [Pointer-array cursors retained byte displacements](#28-pointer-array-cursors-retained-byte-displacements) | exact-instruction gain (draft replay) | fixed: two captured aisys drafts 240 → 248 exact, compile errors 0 → 0; no strict match |
 | 29 | [Automatic ordering crossed dependencies](#29-automatic-ordering-crossed-dependencies) | usable search candidates | direct scalar/call/repeated-lvalue barriers added; native fixture wrong results 12/24 → 0/2; aliases still require review |
+| 30 | [Parallel worktrees oversubscribed the cores](#30-parallel-worktrees-oversubscribed-the-cores) | score and build latency | fixed: `tools/jobs.py` divides cores across active worktrees (floor 2); 17-worktree sweep fan-out 272 → 34 jobs |
 
 ## 1. Stale task packs change scores
 
@@ -482,6 +483,12 @@ The regression tests cover the real array/callback-factory failure with a host
 C89 compile, disabled later declarations and an existing visible declaration.
 Two tests fail against the original scorer and all three pass after the fix.
 
+The sweep permuter now uses the same splicer. Its separate implementation
+duplicated the particle type and emitter externs when seeding `fn_8007452C`.
+The same draft and ProDG build go from 1/1 compile errors to 0/1 at 108/115
+exact instructions. The rerun reached the search and lowered the permuter
+score from 520 to 310. The candidate remains unmatched.
+
 ## 19. Fresh worktrees had no Ghidra project
 
 The nuanim child (PR 166) reported "the local Ghidra project was unavailable". Ghidra 12.1
@@ -710,3 +717,21 @@ The same three real drafts were replayed with unchanged budgets (250/200/200):
 The previous ai2-loader winner's scalar reset and path-loader backup inversion
 are no longer candidates. The new best TestPathCnx draft scores 375/771 and is
 unapplied. See the [measurement](workflow_metrics.md#automatic-order-dependency-barriers).
+
+## 30. Parallel worktrees oversubscribed the cores
+
+On 2026-11-23, 16 matching children ran at once on a 16-core host. Every
+checkout used the old defaults: `sweep.py -j 16`, uncapped `ninja` in `build.sh` and the
+tools, `sweep_report.py` at cores − 2, `pattern_library.py` at all cores, and Ghidra
+at half the cores. Load averages stayed between 29 and 35. Children waited on
+compiles and searches, and some added their own `work/local-bin/ninja -j 4` wrappers
+before building.
+
+Every one of those defaults now comes from `tools/jobs.py`. `LSW1_JOBS` takes
+priority. Otherwise the cores are divided by the number of worktrees whose
+`.ninja_log` changed in the last 30 minutes, with a floor of 2. Explicit flags
+still override.
+
+Before → after, for the same 17 active worktrees: the default sweep fan-out falls
+from 16 jobs per checkout (272 in all) to 2 per checkout (34). A lone checkout
+still gets all 16. Tests: `tests/test_jobs.py`.

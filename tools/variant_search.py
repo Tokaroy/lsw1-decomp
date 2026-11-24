@@ -115,6 +115,20 @@ def leading_decls(lines: list[str]) -> tuple[int, int]:
     return start, end
 
 
+def declaration_orders(lines: list[str]) -> list[tuple[int, ...]]:
+    """Keep referenced locals on the same side of each array bound or initializer."""
+    declarations = [DECL_RE.match(line) for line in lines]
+    names = {decl["name"]: index for index, decl in enumerate(declarations)}
+    constraints = set()
+    for index, (line, decl) in enumerate(zip(lines, declarations)):
+        for token in re.findall(r"\b[A-Za-z_]\w*\b", line[decl.end("name"):]):
+            other = names.get(token)
+            if other is not None and other != index:
+                constraints.add((min(index, other), max(index, other)))
+    return [order for order in itertools.permutations(range(len(lines)))
+            if all(order.index(a) < order.index(b) for a, b in constraints)]
+
+
 def build_dimensions(fn: Function) -> tuple[list[Dimension], list[str]]:
     """Return the dimensions and the body lines they refer to."""
     lines = fn.body.split("\n")
@@ -124,8 +138,9 @@ def build_dimensions(fn: Function) -> tuple[list[Dimension], list[str]]:
     # only the leading ones are permuted (the factorial grows too fast for more).
     n = min(e - s, MAX_DECLS)
     if n >= 2:
-        dims.append(Dimension(f"decl-order[{s}:{s + n}]", "order", s,
-                              list(itertools.permutations(range(n)))))
+        orders = declaration_orders(lines[s:s + n])
+        if len(orders) > 1:
+            dims.append(Dimension(f"decl-order[{s}:{s + n}]", "order", s, orders))
     ternaries = {}
     for i, line in enumerate(lines):
         m = TERNARY_RE.match(line)

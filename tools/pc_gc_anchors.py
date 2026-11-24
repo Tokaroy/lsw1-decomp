@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import fcntl
 import hashlib
 import os
 import random
@@ -153,6 +154,24 @@ def pe_sections(data: bytes) -> tuple[int, list[tuple[str, int, int, int]]]:
     return image_base, sections
 
 
+def pc_string_owners(code: bytes, text_va: int, strings: dict[int, str],
+                     starts: list[int]) -> dict[str, set[int]]:
+    """Find unique strings' references, including addresses at unaligned byte offsets."""
+    counts = Counter(strings.values())
+    owners = {addr: set() for addr, string in strings.items() if counts[string] == 1}
+    view = memoryview(code)
+    for alignment in range(4):
+        end = len(code) - (len(code) - alignment) % 4
+        words = struct.iter_unpack("<I", view[alignment:end])
+        for index, (address,) in enumerate(words):
+            functions = owners.get(address)
+            if functions is not None:
+                site = text_va + alignment + 4 * index
+                functions.add(starts[bisect.bisect_right(starts, site) - 1])
+    # Preserve string table order for the pairing stages that consume these references.
+    return {strings[address]: functions for address, functions in owners.items() if functions}
+
+
 def pc_string_refs(exe: Path, min_len: int, listing=None) -> tuple[dict[str, set[int]], dict[int, list[int]]]:
     """Return ({string text: {x86 function VA}}, {x86 function VA: [callee VA]}).
 
@@ -174,7 +193,6 @@ def pc_string_refs(exe: Path, min_len: int, listing=None) -> tuple[dict[str, set
         if name in {".rdata", ".data"}:
             for match in pattern.finditer(data[off : off + size]):
                 strings[va + match.start()] = match.group()[:-1].decode("ascii")
-    counts = Counter(strings.values())
 
     # Function starts: direct call targets, plus code following int3/nop padding.
     # With a disassembly, only instruction boundaries count and calls are real
@@ -199,16 +217,7 @@ def pc_string_refs(exe: Path, min_len: int, listing=None) -> tuple[dict[str, set
                     starts.add(text_va + end)
     ordered = sorted(starts)
 
-    refs: dict[str, set[int]] = defaultdict(set)
-    for addr, string in strings.items():
-        if counts[string] != 1:
-            continue
-        needle = struct.pack("<I", addr)
-        pos = code.find(needle)
-        while pos >= 0:
-            index = bisect.bisect_right(ordered, text_va + pos) - 1
-            refs[string].add(ordered[index])
-            pos = code.find(needle, pos + 1)
+    refs = pc_string_owners(code, text_va, strings, ordered)
 
     # Ordered distinct direct callees per function.
     start_set = set(ordered)
@@ -695,6 +704,29 @@ def load_anchors(path: Path | None = None) -> dict[int, tuple[int, str]] | None:
     return out
 
 
+def ensure_tables(exe: Path) -> str | None:
+    """Build the pair and extent tables once across concurrent task packs."""
+    needed = [OUT_DIR / "gc_pc_anchors.tsv", OUT_DIR / "pc_functions.tsv"]
+    seed = CONFIRMED.stat().st_mtime if CONFIRMED.exists() else 0
+
+    def ready() -> bool:
+        return all(path.exists() and path.stat().st_mtime >= seed for path in needed)
+
+    if ready():
+        return None
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with (OUT_DIR / ".generate.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if ready():
+            return None
+        result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--exe", str(exe)],
+                                cwd=ROOT, capture_output=True, text=True)
+        if result.returncode != 0 or not ready():
+            detail = (result.stderr.strip().splitlines() or ["no output"])[-1]
+            return f"`python3 tools/pc_gc_anchors.py` failed: {detail}"
+    return None
+
+
 def donor_markdown(addr: int, body: tuple[Path | None, str] | None = None) -> str:
     """Return the pc_jp_retail section for a task pack's donor_evidence.md.
 
@@ -709,13 +741,10 @@ def donor_markdown(addr: int, body: tuple[Path | None, str] | None = None) -> st
         lines.append("Unavailable: `orig/pc/jpn/retail` is not present here or in the primary"
                      " checkout (see docs/research.md#pc-builds). Record this limit.")
         return "\n".join(lines) + "\n"
-    if not anchors.exists() or anchors.stat().st_mtime < CONFIRMED.stat().st_mtime:
-        result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--exe", str(exe)],
-                                cwd=ROOT, capture_output=True, text=True)
-        if result.returncode != 0 or not anchors.exists():
-            lines.append("Not generated: `python3 tools/pc_gc_anchors.py` failed: "
-                         + (result.stderr.strip().splitlines() or ["no output"])[-1])
-            return "\n".join(lines) + "\n"
+    problem = ensure_tables(exe)
+    if problem:
+        lines.append(f"Not generated: {problem}")
+        return "\n".join(lines) + "\n"
     key = f"0x{addr:08X}"
     row = next((line.split("\t") for line in anchors.read_text().splitlines()
                 if line.startswith(key + "\t")), None)
