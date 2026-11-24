@@ -2983,3 +2983,1472 @@ void fn_8008CDE8(struct aiwalklist_s *list, aiwalkfn_t fn)
     }
     list->marked = marked;
 }
+
+struct aipathnode_s {
+    char *name;
+    u8 pad4[0x24];
+    u8 count;
+    u8 pad29[7];
+    u8 **connections;
+    u8 pad34[0x24];
+};
+struct aipath_s {
+    u8 pad0[0x10];
+    u8 count;
+    u8 pad11[0x67];
+    struct aipathnode_s *nodes;
+};
+struct aipathsys_s {
+    u8 count;
+    u8 pad1[7];
+    struct aipath_s *active;
+};
+struct aisysroot_s {
+    u8 pad0[0xc];
+    struct aipathsys_s *paths;
+};
+
+static inline struct aipathnode_s *aiPathFindNode(struct aisysroot_s *sys, struct aipath_s *path, char *name)
+{
+    s32 i;
+    if (!path) {
+        if (sys && sys->paths && sys->paths->count) path = sys->paths->active;
+    }
+    if (path) {
+        for (i = 0; i < path->count; i++) {
+            if (path->nodes[i].name && NuStrICmp(path->nodes[i].name, name) == 0) return &path->nodes[i];
+        }
+    }
+    return 0;
+}
+
+u8 *fn_8008A6D4(void *sysArg, void *pathArg, char *fromName, char *toName, s32 *direction)
+{
+    struct aisysroot_s *sys = sysArg;
+    struct aipath_s *path = pathArg;
+    struct aipathnode_s *from, *to;
+    s32 index, i;
+
+    if (!path) {
+        if (sys && sys->paths && sys->paths->count) path = sys->paths->active;
+    }
+    if (path) {
+        from = aiPathFindNode(sys, path, fromName);
+        to = aiPathFindNode(sys, path, toName);
+        if (from && to && from != to) {
+            index = to - path->nodes;
+            for (i = 0; i < from->count; i++) {
+                if (from->connections[i][0] == index) {
+                    *direction = 1;
+                    return from->connections[i];
+                }
+                if (from->connections[i][1] == index) {
+                    *direction = 0;
+                    return from->connections[i];
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+struct aiscxcnx_s {
+    u8 nodes[2];
+    u8 pad2[2];
+    u32 flags[2];
+    u8 padc[8];
+    s16 rotation;
+    u16 mask;
+    u8 pad18[4];
+    f32 dist;
+};
+struct aiscxnode_s {
+    char *name;
+    f32 pos[3];
+    u8 pad10[0x48];
+};
+struct aiscxpath_s {
+    u8 pad0[0x14];
+    u8 routecount;
+    u8 pad15[0x63];
+    struct aiscxnode_s *nodes;
+};
+struct aiscxpacket_s {
+    u8 pad0[0x50];
+    void *owner;
+    u8 pad54[0x53];
+    u8 state;
+    u8 pada8[0x64];
+    struct aiscxpath_s *path;
+    struct aiscxcnx_s *connection;
+    u8 direction;
+    u8 pad115[3];
+    u32 flags;
+    f32 dist;
+    f32 width;
+    u8 pad124[0x44];
+    u16 available;
+    u8 route;
+    u8 next;
+    u8 pad16c[0x40];
+    u32 caps;
+};
+struct aiscxvec_s { f32 x, y, z; };
+
+static inline void aiSysFindRoute(struct aiscxpacket_s *packet)
+{
+    s32 route, first;
+
+    if (!packet->path->routecount) return;
+    if (!(packet->connection->mask & packet->available)) return;
+    first = packet->next;
+    if (first < 0 || first >= packet->path->routecount) first = 0;
+    route = first;
+    do {
+        if ((s32)((u64)(packet->connection->mask & packet->available) >> route) & 1) {
+            packet->route = route;
+            packet->next = route + 1;
+            return;
+        }
+        route++;
+        if (route >= packet->path->routecount) route = 0;
+    } while (route != first);
+}
+
+void AISysCharacterSetPathCnx(struct aiscxpacket_s *packet, f32 *position, struct aiscxcnx_s *cnx, s32 direction)
+{
+    struct aiscxvec_s rotated;
+    struct aiscxvec_s delta;
+    struct aiscxnode_s *node;
+    u32 flags;
+
+    if (cnx && packet->owner) {
+        if (packet->connection == cnx && packet->direction == direction && (packet->flags & 0xa000) != 0x8000) return;
+        flags = cnx->flags[direction];
+        if (flags) {
+            if (flags & 0x98000000) {
+                aiSysFindRoute(packet);
+                return;
+            }
+            if (!(flags & packet->caps)) return;
+        }
+        if (packet->connection != cnx || packet->direction != direction) {
+            packet->direction = direction;
+            packet->state = 0;
+            packet->connection = cnx;
+            node = &packet->path->nodes[cnx->nodes[0]];
+            delta.x = position[0] - node->pos[0];
+            delta.z = position[2] - node->pos[2];
+            NuVecRotateY(&rotated, &delta, -cnx->rotation);
+            packet->dist = rotated.z / cnx->dist;
+            packet->width = rotated.x;
+            packet->flags &= ~0x2000;
+        }
+        if ((packet->flags & 0xa000) == 0x8000) {
+            if (packet->route != 0xff && !((s32)((u64)packet->connection->mask >> packet->route) & 1)) packet->route = 0xff;
+            if (packet->route == 0xff) aiSysFindRoute(packet);
+            packet->flags |= 0x2000;
+        }
+    } else {
+        packet->connection = cnx;
+        packet->route = 0xff;
+        packet->next = 0;
+    }
+}
+
+struct aiffpathinfo_s { u32 w[6]; };
+struct aiffrow_s {
+    struct aiffpathinfo_s info;
+    f32 pos[3];
+    s32 yrot;
+    u8 pad28[0xc];
+};
+struct aiffgroup_s {
+    u8 pad0[6];
+    u8 rowcount;
+    u8 pad7;
+    u8 across;
+    u8 pad9[0x47];
+    u32 flags;
+    struct aiffrow_s rows[1];
+    u8 pad88[0xa0];
+    f32 spacing;
+};
+struct aiffmove_s {
+    u32 mode : 3;
+    u32 follow : 1;
+    u32 pad : 28;
+};
+struct aiffpacket_s {
+    u8 pad0[0xc0];
+    f32 actionpos[3];
+    u8 padcc[0x24];
+    struct aiffgroup_s *group;
+    u8 padf4;
+    u8 column;
+    u8 row;
+    u8 padf7[0x79];
+    f32 dest[3];
+    f32 stopping;
+    f32 param;
+    struct aiffpathinfo_s info;
+    f32 *look;
+    union { u32 flags; struct aiffmove_s move; } m;
+};
+struct aiffvec_s { f32 x, y, z; };
+
+
+static inline void aiFFMoveInstruction(struct aiffpacket_s *packet, struct aiffvec_s *destination, f32 stopping, struct aiffpathinfo_s *info, s32 mode, f32 param)
+{
+    struct aiffgroup_s *group = packet->group;
+    if (group && (group->flags & 0x10000000)) {
+        if (mode == 5) mode = 1;
+    }
+    if (destination) *(struct aiffvec_s *)packet->dest = *destination;
+    if (info) packet->info = *info;
+    packet->stopping = stopping;
+    packet->m.move.mode = mode;
+    packet->param = param;
+}
+
+void AIFormationFollow(struct aiffpacket_s *packet)
+{
+    struct aiffgroup_s *group = packet->group;
+    struct aiffrow_s *row;
+    u8 column;
+    struct aiffvec_s destination;
+    struct aiffvec_s offset;
+    f32 colOffset;
+    s32 half;
+
+    if (packet->row < group->rowcount) {
+        row = &group->rows[packet->row];
+        half = (packet->column + 1) / 2;
+        column = packet->column;
+        if (packet->m.flags & 0x40) {
+            if (group->across & 1) offset.x = 0.0f; else offset.x = -(group->spacing * 0.5f);
+            if (packet->group->flags & 0x20000000) offset.x = -offset.x;
+        } else {
+            colOffset = group->spacing * half;
+            offset.x = (column & 1) ? -colOffset : colOffset;
+            if (packet->group->flags & 0x20000000) offset.x = -offset.x;
+        }
+        offset.y = 0.0f;
+        offset.z = 0.0f;
+        NuVecRotateY(&offset, &offset, row->yrot);
+        NuVecAdd(&destination, &offset, row->pos);
+        packet->m.move.follow = 1;
+        aiFFMoveInstruction(packet, &destination, 0.0f, &row->info, 5, 0.0f);
+        packet->actionpos[0] = 0.0f;
+        packet->actionpos[1] = 0.0f;
+        packet->actionpos[2] = 100.0f;
+        NuVecRotateY(packet->actionpos, packet->actionpos, row->yrot);
+        NuVecAdd(packet->actionpos, packet->actionpos, row->pos);
+        packet->look = packet->actionpos;
+    }
+}
+
+struct aiupdcnx_s {
+    u8 nodes[2];
+    u8 pad2[2];
+    u32 flags[2];
+    u8 padc[8];
+    s16 rotation;
+    u16 mask;
+    u8 pad18[4];
+    f32 dist;
+    u8 pad20[4];
+    f32 maxdist;
+};
+struct aiupdnode_s {
+    char *name;
+    f32 pos[3];
+    f32 radius;
+    u8 pad14[4];
+    f32 minh;
+    f32 minoff;
+    f32 maxh;
+    f32 maxoff;
+    u8 count;
+    u8 pad29;
+    u8 special;
+    u8 flags;
+    u8 pad2c[4];
+    struct aiupdcnx_s **connections;
+    u8 pad34[8];
+    u8 handle[0xc];
+    f32 spos[3];
+    u8 pad54[4];
+};
+struct aiupdpath_s {
+    u8 pad0[0x18];
+    u8 updated[0x60];
+    struct aiupdnode_s *nodes;
+};
+struct aiupdvec_s { f32 x, y, z; };
+struct aiupdanim_s { u8 pad0[0x40]; f32 speed; u8 pad44[0xc]; s32 flags; };
+
+extern s32 fn_800131B8(void *);
+extern void *fn_800133FC(void *);
+extern struct aiupdanim_s *fn_8001384C(void *);
+extern void NuVecMtxTransform(void *, void *, void *);
+extern f32 NuAtan2(f32, f32);
+
+void AIPathNodeUpdatePos(void *system, struct aiprocesspath_s *pathArg, struct aiprocessnode_s *nodeArg)
+{
+    struct aiupdpath_s *path = (struct aiupdpath_s *)pathArg;
+    struct aiupdnode_s *node = (struct aiupdnode_s *)nodeArg;
+    struct aiupdnode_s *other;
+    struct aiupdcnx_s *cnx;
+    struct aiupdvec_s prev;
+    struct aiupdvec_s dir;
+    struct aiupdanim_s *anim;
+    void *mtx;
+    s32 index;
+    s32 i;
+    if (node->special) {
+        index = node - path->nodes;
+        if (!((path->updated[index / 8] >> (index % 8)) & 1)) {
+            path->updated[index / 8] |= 1 << (index % 8);
+            if (node->flags & 4) {
+                if (!fn_800131B8(node->handle)) {
+                    return;
+                }
+                node->flags &= ~4;
+                for (i = 0; i < node->count; i++) {
+                    cnx = node->connections[i];
+                    if (cnx->nodes[0] == index) {
+                        other = &path->nodes[cnx->nodes[1]];
+                    } else {
+                        other = &path->nodes[cnx->nodes[0]];
+                    }
+                    if (!(other->flags & 4)) {
+                        cnx->flags[0] &= ~0x10000000;
+                        cnx->flags[1] &= ~0x10000000;
+                    }
+                }
+            } else if (!fn_800131B8(node->handle)) {
+                if ((!lbl_80408D4C) || (!((s32 (*)(void *, void *))lbl_80408D4C)(system, node->handle))) {
+                    node->flags |= 4;
+                    for (i = 0; i < node->count; i++) {
+                        cnx = node->connections[i];
+                        cnx->flags[0] |= 0x10000000;
+                        cnx->flags[1] |= 0x10000000;
+                    }
+
+                    return;
+                }
+            }
+            prev = *((struct aiupdvec_s *)node->pos);
+            mtx = fn_800133FC(node->handle);
+            NuVecMtxTransform(node->pos, node->spos, mtx);
+            node->minh = node->pos[1] + node->minoff;
+            node->maxh = node->pos[1] + node->maxoff;
+            for (i = 0; i < node->count; i++) {
+                cnx = node->connections[i];
+                if (cnx->nodes[0] == index) {
+                    other = &path->nodes[cnx->nodes[1]];
+                    cnx->dist = NuVecXZDist(other->pos, node->pos, &dir);
+                    cnx->rotation = NuAtan2(dir.x, dir.z) * 10430.378f;
+                } else {
+                    other = &path->nodes[cnx->nodes[0]];
+                    cnx->dist = NuVecXZDist(node->pos, other->pos, &dir);
+                    cnx->rotation = NuAtan2(dir.x, dir.z) * 10430.378f;
+                }
+                if (cnx->maxdist != 0.0f) {
+                    if (cnx->dist > ((cnx->maxdist + node->radius) + other->radius)) {
+                        cnx->flags[0] |= 0x08000000;
+                        cnx->flags[1] |= 0x08000000;
+                    } else {
+                        cnx->flags[0] &= ~0x08000000;
+                        cnx->flags[1] &= ~0x08000000;
+                    }
+                }
+            }
+
+            if (((node->pos[0] != prev.x) || (node->pos[1] != prev.y)) || (node->pos[2] != prev.z)) {
+                node->flags |= 2;
+            } else if (((anim = fn_8001384C(node->handle)) && (anim->flags < 0)) && (anim->speed != 0.0f)) {
+                node->flags |= 2;
+            } else {
+                node->flags &= ~2;
+            }
+        }
+    }
+}
+
+struct aire2vec_s { f32 x, y, z; };
+struct aire2info_s { u32 w[6]; };
+struct aire2object_s { u8 pad0[0x6c]; struct aire2vec_s position; };
+struct aire2packet_s {
+    u8 pad0[0x80];
+    struct aire2vec_s dest;
+    f32 stopping;
+    u8 pad90[0x7c];
+    struct aire2info_s info;
+    struct aire2vec_s pathpos;
+    u8 pad130[0x40];
+    struct aire2vec_s fallback;
+    u8 pad17c[4];
+    f32 param;
+};
+
+void fn_8008E494(void *system, struct aire2packet_s *packet, struct aire2object_s *object, s32 checks)
+{
+    struct aire2vec_s difference;
+    f32 distance;
+    struct aire2info_s info;
+    struct aire2vec_s position;
+    struct aire2vec_s pathpos;
+
+    distance = NuVecXZDist(&object->position, &packet->fallback, &difference);
+    if (distance == 0.0f) {
+        difference.x = packet->param;
+        difference.y = 0.0f;
+        difference.z = 0.0f;
+    } else {
+        NuVecScale(&difference, &difference, packet->param / distance);
+    }
+    NuVecAdd(&packet->dest, &packet->fallback, &difference);
+    packet->stopping = 0.0f;
+    info = packet->info;
+    position = object->position;
+    pathpos = packet->pathpos;
+    object->position = packet->dest;
+    AISysGetCharacterPathPos(system, object, packet, 0, 1);
+    packet->dest = packet->pathpos;
+    packet->info = info;
+    object->position = position;
+    packet->pathpos = pathpos;
+}
+
+struct aiinscnx_s { u8 nodes[2]; u8 pad2[0x12]; s16 rotation; };
+struct aiinsnode_s { u8 pad0[4]; f32 pos[3]; u8 pad10[0x48]; };
+struct aiinspath_s { u8 pad0[0x78]; struct aiinsnode_s *nodes; };
+struct aiinsobject_s { u8 pad0[0x291]; u8 field291; };
+struct aiinsflags_s { u32 pad0 : 5; u32 right : 1; u32 left : 1; u32 pad7 : 25; };
+struct aiinspacket_s {
+    u8 pad0[0x10c];
+    struct aiinspath_s *path;
+    u8 pad110[0x34];
+    struct aiinscnx_s *cnx;
+    struct aiinscnx_s *target;
+    u8 right[0xc];
+    u8 left[0xc];
+    u8 pad164[6];
+    u8 route;
+    u8 pad16b[0x35];
+    union { u32 flags; struct aiinsflags_s bits; } m;
+};
+
+extern s32 fn_8008ACD8(void *, f32 *, struct aiinspath_s *, struct aiinscnx_s *, s32, struct aiinscnx_s *, u8, u8, void *, f32, void *);
+extern u32 fn_8008BA28(struct aiinsobject_s *, struct aiinscnx_s *, struct aiinscnx_s *, s32, s32, struct aiinsnode_s *, struct aiinsnode_s *, struct aiinsnode_s *, void *);
+
+u32 fn_8008BCC0(void *system, struct aiinspacket_s *packet, struct aiinsobject_s *object, struct aiinscnx_s *cnx, struct aiinscnx_s *target)
+{
+    struct aiinspath_s *path;
+    struct aiinsnode_s *before;
+    struct aiinsnode_s *shared;
+    struct aiinsnode_s *after;
+    s32 first;
+    s32 second;
+
+    if (cnx == packet->cnx && target == packet->target) {
+        return packet->m.bits.right | packet->m.bits.left;
+    }
+    {
+        packet->m.flags &= ~0x06000000;
+        packet->cnx = cnx;
+        packet->target = target;
+        path = packet->path;
+        if (cnx->nodes[0] == target->nodes[0]) {
+            before = &path->nodes[cnx->nodes[1]];
+            shared = &path->nodes[cnx->nodes[0]];
+            after = &path->nodes[target->nodes[1]];
+            first = NuAngAdd(cnx->rotation, 0x8000);
+            second = NuAngAdd(target->rotation, 0x8000);
+        } else if (cnx->nodes[0] == target->nodes[1]) {
+            before = &path->nodes[cnx->nodes[1]];
+            shared = &path->nodes[cnx->nodes[0]];
+            after = &path->nodes[target->nodes[0]];
+            first = NuAngAdd(cnx->rotation, 0x8000);
+            second = target->rotation;
+        } else if (cnx->nodes[1] == target->nodes[0]) {
+            before = &path->nodes[cnx->nodes[0]];
+            shared = &path->nodes[cnx->nodes[1]];
+            after = &path->nodes[target->nodes[1]];
+            first = cnx->rotation;
+            second = NuAngAdd(target->rotation, 0x8000);
+        } else if (cnx->nodes[1] == target->nodes[1]) {
+            before = &path->nodes[cnx->nodes[0]];
+            shared = &path->nodes[cnx->nodes[1]];
+            after = &path->nodes[target->nodes[0]];
+            first = cnx->rotation;
+            second = target->rotation;
+        } else {
+            return 0;
+        }
+        if (fn_8008ACD8(system, after->pos, path, cnx, 1, cnx, packet->route, object->field291, 0, 0.0f, 0)) {
+            return 0;
+        }
+        packet->m.bits.right = fn_8008BA28(object, cnx, target, first, second, before, shared, after, packet->right);
+        packet->m.bits.left = fn_8008BA28(object, target, cnx, second, first, after, shared, before, packet->left);
+    }
+    return packet->m.bits.right | packet->m.bits.left;
+}
+
+struct aiinsvec_s { f32 x, y, z; };
+struct aiinsobjrad_s { u8 pad0[0xbc]; f32 radius; };
+struct aiinscnxd_s { u8 pad0[0x1c]; f32 dist; };
+struct aiinsnoder_s { u8 pad0[4]; struct aiinsvec_s pos; f32 radius; };
+
+extern f32 lbl_80408D5C;
+extern s32 fn_8000AEC4(f32);
+extern s32 NuMtlGet3dBuffer(void *, void *, void *, void *, f32 *, f32 *);
+
+u32 fn_8008BA28(struct aiinsobject_s *objectArg, struct aiinscnx_s *cnxArg, struct aiinscnx_s *targetArg, s32 first, s32 second, struct aiinsnode_s *beforeArg, struct aiinsnode_s *sharedArg, struct aiinsnode_s *afterArg, void *result)
+{
+    struct aiinsobjrad_s *object = (struct aiinsobjrad_s *)objectArg;
+    struct aiinscnxd_s *cnx = (struct aiinscnxd_s *)cnxArg;
+    struct aiinscnxd_s *target = (struct aiinscnxd_s *)targetArg;
+    struct aiinsnoder_s *before = (struct aiinsnoder_s *)beforeArg;
+    struct aiinsnoder_s *shared = (struct aiinsnoder_s *)sharedArg;
+    struct aiinsnoder_s *after = (struct aiinsnoder_s *)afterArg;
+    struct aiinsvec_s firstStart;
+    struct aiinsvec_s firstEnd;
+    struct aiinsvec_s secondStart;
+    struct aiinsvec_s secondEnd;
+    struct aiinsvec_s firstOrigin;
+    struct aiinsvec_s firstDir;
+    struct aiinsvec_s secondOrigin;
+    struct aiinsvec_s secondDir;
+    f32 firstParam;
+    f32 secondParam;
+    f32 clearance;
+    f32 beforeRadius;
+    f32 sharedRadius;
+    f32 afterRadius;
+    s32 angle;
+
+    clearance = object->radius + lbl_80408D5C;
+    beforeRadius = before->radius - clearance;
+    if (beforeRadius < 0.0f) {
+        beforeRadius = 0.0f;
+    }
+    sharedRadius = shared->radius - clearance;
+    if (sharedRadius < 0.0f) {
+        sharedRadius = 0.0f;
+    }
+    afterRadius = after->radius - clearance;
+    if (afterRadius < 0.0f) {
+        afterRadius = 0.0f;
+    }
+    firstStart.x = beforeRadius;
+    firstStart.y = 0.0f;
+    firstStart.z = 0.0f;
+    firstEnd.x = beforeRadius;
+    firstEnd.y = 0.0f;
+    firstEnd.z = cnx->dist;
+    angle = NuAngAdd(first, fn_8000AEC4((sharedRadius - beforeRadius) / cnx->dist));
+    NuVecRotateY(&firstStart, &firstStart, angle);
+    NuVecRotateY(&firstEnd, &firstEnd, angle);
+    NuVecAdd(&firstStart, &firstStart, &before->pos);
+    NuVecAdd(&firstEnd, &firstEnd, &before->pos);
+    secondStart.x = -afterRadius;
+    secondStart.y = 0.0f;
+    secondStart.z = 0.0f;
+    secondEnd.x = -afterRadius;
+    secondEnd.y = 0.0f;
+    secondEnd.z = target->dist;
+    angle = NuAngSub(second, fn_8000AEC4((sharedRadius - afterRadius) / target->dist));
+    NuVecRotateY(&secondStart, &secondStart, angle);
+    NuVecRotateY(&secondEnd, &secondEnd, angle);
+    NuVecAdd(&secondStart, &secondStart, &after->pos);
+    NuVecAdd(&secondEnd, &secondEnd, &after->pos);
+    firstOrigin = firstStart;
+    NuVecSub(&firstDir, &firstEnd, &firstOrigin);
+    secondOrigin = secondStart;
+    NuVecSub(&secondDir, &secondEnd, &secondOrigin);
+    if (NuMtlGet3dBuffer(&firstOrigin, &firstDir, &secondOrigin, &secondDir, &firstParam, &secondParam) && firstParam >= 0.0f && secondParam >= 0.0f && firstParam <= 1.0f && secondParam <= 1.0f) {
+        NuVecScale(&firstDir, &firstDir, firstParam);
+        NuVecAdd(result, &firstOrigin, &firstDir);
+        return 1;
+    }
+    return 0;
+}
+
+struct aigpcnx_s { u8 nodes[2]; };
+struct aigpnode_s { u8 pad0[0x28]; u8 count; u8 pad29[7]; struct aigpcnx_s **connections; u8 pad34[0x24]; };
+struct aigppath_s { u8 pad0[0x10]; u8 count; u8 pad11[0x67]; struct aigpnode_s *nodes; };
+struct aigpinfo_s {
+    struct aigppath_s *path;
+    struct aigpcnx_s *cnx;
+    u8 direction;
+    u8 pad9[3];
+    u32 next : 16;
+    u32 onpath : 1;
+    u32 pad : 15;
+};
+struct aigppathsys_s { u8 count; u8 pad1[7]; struct aigppath_s *active; };
+struct aigpsys_s { u8 pad0[0xc]; struct aigppathsys_s *pathsys; };
+struct aigcflags_s {
+    u32 next : 16;
+    u32 onpath : 1;
+    u32 wasonpath : 1;
+    u32 bit2 : 1;
+    u32 bit3 : 1;
+    u32 pad : 12;
+};
+struct aigcpacket_s {
+    u8 pad0[0xa7];
+    u8 state;
+    u8 pada8[0x64];
+    struct aigppath_s *path;
+    struct aigpcnx_s *cnx;
+    u8 direction;
+    u8 pad115[3];
+    struct aigcflags_s flags;
+    u8 pad11c[0x1c];
+    s32 target;
+};
+struct aigcobject_s {
+    u8 pad0[0x6c];
+    f32 pos[3];
+    u8 pad78[0x194];
+    u32 flags;
+};
+extern s32 AISysCharacterTestPathCnx(struct aigpsys_s *, struct aigcobject_s *, struct aigcpacket_s *, struct aigpcnx_s *, s32, f32 *, u8 *);
+extern f32 lbl_8019C850[];
+
+static inline void aiClearChecked(u8 *buf)
+{
+    memset(buf, 0, 0x1fe0);
+}
+
+void AISysGetCharacterPathPos(void *systemArg, void *objectArg, void *packetArg, s32 checks, s32 adjacent)
+{
+    struct aigpsys_s *system = systemArg;
+    struct aigcobject_s *object = objectArg;
+    struct aigcpacket_s *packet = packetArg;
+    u8 checked[0x1fe0];
+    f32 distance;
+    struct aigppath_s *path;
+    struct aigpcnx_s *current;
+    struct aigpcnx_s *cnx;
+    struct aigpnode_s *node;
+    u8 direction;
+    u8 other;
+    s32 dir;
+    s32 i;
+    s32 remaining;
+
+    aiClearChecked(checked);
+    distance = lbl_8019C850[0];
+    packet->flags.wasonpath = packet->flags.onpath;
+    packet->flags.onpath = 0;
+    packet->flags.bit3 = 0;
+    if (system && system->pathsys && system->pathsys->count) {
+        path = packet->path;
+        if (!path) {
+            AISysCharacterSetPath(packet, system->pathsys->active);
+            AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, object->pos, 0, 0);
+            packet->flags.next = (s32)path;
+        }
+        current = packet->cnx;
+        if (current) {
+            direction = packet->direction;
+            if (AISysCharacterTestPathCnx(system, object, packet, current, direction, &distance, checked)) {
+                return;
+            }
+            if (!(object->flags & 0x01000000) && (packet->target || packet->state || !adjacent)) {
+                return;
+            }
+            node = &packet->path->nodes[current->nodes[direction]];
+            for (i = 0; i < node->count; i++) {
+                cnx = node->connections[i];
+                if (cnx != current) {
+                    dir = 1;
+                    if (cnx->nodes[0] == current->nodes[direction]) {
+                        dir = 0;
+                    }
+                    if (AISysCharacterTestPathCnx(system, object, packet, cnx, dir, &distance, checked)) {
+                        return;
+                    }
+                }
+            }
+            node = &packet->path->nodes[current->nodes[direction == 0]];
+            for (i = 0; i < node->count; i++) {
+                cnx = node->connections[i];
+                if (cnx != current) {
+                    dir = 1;
+                    if (cnx->nodes[0] == current->nodes[direction == 0]) {
+                        dir = 0;
+                    }
+                    if (AISysCharacterTestPathCnx(system, object, packet, cnx, dir, &distance, checked)) {
+                        return;
+                    }
+                }
+            }
+        }
+        remaining = checks;
+        if (remaining > packet->path->count) {
+            remaining = packet->path->count;
+        }
+        while (remaining) {
+            node = &packet->path->nodes[packet->flags.next];
+            for (i = 0; i < node->count; i++) {
+                if (AISysCharacterTestPathCnx(system, object, packet, node->connections[i], -1, &distance, checked)) {
+                    return;
+                }
+            }
+            remaining--;
+            packet->flags.next = (packet->flags.next + 1) % packet->path->count;
+        }
+    } else {
+        packet->flags.onpath = 0;
+        AISysCharacterSetPath(packet, 0);
+        AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, object->pos, 0, 0);
+    }
+}
+
+void fn_8008B4D8(struct aigpsys_s *system, f32 *pos, struct aigpinfo_s *info, struct aigppath_s *path, s32 checks)
+{
+    u8 checked[0x1fe0];
+    struct aigpcnx_s *current;
+    struct aigpnode_s *node;
+    s32 i;
+    s32 remaining;
+    s32 zero;
+
+    aiClearChecked(checked);
+    info->onpath = 0;
+    if (system && system->pathsys && system->pathsys->count) {
+        if (!path) {
+            path = system->pathsys->active;
+        }
+        if (info->path != path) {
+            zero = 0;
+            info->path = path;
+            info->cnx = (void *)zero;
+            info->next = zero;
+        }
+        current = info->cnx;
+        if (current) {
+            if (fn_8008ACD8(system, pos, (struct aiinspath_s *)path, (struct aiinscnx_s *)current, 1, 0, 0xff, 0xff, info, 0.0f, checked)) {
+                return;
+            }
+            node = &info->path->nodes[current->nodes[info->direction]];
+            for (i = 0; i < node->count; i++) {
+                if (node->connections[i] != current && fn_8008ACD8(system, pos, (struct aiinspath_s *)path, (struct aiinscnx_s *)node->connections[i], 1, 0, 0xff, 0xff, info, 0.0f, checked)) {
+                    return;
+                }
+            }
+            node = &info->path->nodes[current->nodes[info->direction == 0]];
+            for (i = 0; i < node->count; i++) {
+                if (node->connections[i] != current && fn_8008ACD8(system, pos, (struct aiinspath_s *)path, (struct aiinscnx_s *)node->connections[i], 1, 0, 0xff, 0xff, info, 0.0f, checked)) {
+                    return;
+                }
+            }
+        }
+        remaining = checks;
+        if (remaining > info->path->count) {
+            remaining = info->path->count;
+        }
+        while (remaining) {
+            node = &info->path->nodes[info->next];
+            for (i = 0; i < node->count; i++) {
+                if (fn_8008ACD8(system, pos, (struct aiinspath_s *)path, (struct aiinscnx_s *)node->connections[i], 1, 0, 0xff, 0xff, info, 0.0f, checked)) {
+                    return;
+                }
+            }
+            info->next = (info->next + 1) % info->path->count;
+            remaining--;
+        }
+    }
+}
+
+struct aimvvec_s { f32 x, y, z; };
+struct aimvobject_s { u8 pad0[0x6c]; struct aimvvec_s position; };
+struct aimvpacket_s {
+    u8 pad0[0x80];
+    struct aimvvec_s dest;
+    f32 stopping;
+    u8 pad90[0x7c];
+    void *path;
+    void *cnx;
+    u8 pad114[4];
+    u32 pathflags;
+    u8 pad11c[0x54];
+    struct aimvvec_s fallback;
+    f32 fallbackstop;
+    f32 param;
+    u8 pad184[0x1c];
+    u32 flags;
+    u32 flags2;
+};
+extern s32 (*lbl_80408DA0)(void *, struct aimvpacket_s *, struct aimvobject_s *);
+extern s32 lbl_80408D68;
+extern void fn_8008CF0C(void *, struct aimvpacket_s *, struct aimvobject_s *, s32);
+extern void fn_8008DCE0(void *, struct aimvpacket_s *, struct aimvobject_s *, s32);
+extern void fn_8008E650(void *, struct aimvpacket_s *, struct aimvobject_s *, s32);
+
+static inline void aiMoveAvoidingCamera(void *system, struct aimvpacket_s *packet, struct aimvobject_s *object, s32 checks)
+{
+    struct aimvvec_s saved;
+
+    saved = packet->fallback;
+    fn_8008CF0C(system, packet, object, checks);
+    packet->fallback = saved;
+}
+
+static inline void aiRetreat(void *system, struct aimvpacket_s *packet, struct aimvobject_s *object, s32 checks)
+{
+    struct aimvvec_s diff;
+    f32 distance;
+
+    if (lbl_80408D68) {
+        fn_8008E494(system, (struct aire2packet_s *)packet, (struct aire2object_s *)object, checks);
+        return;
+    }
+    if (packet->pathflags & 0x8000) {
+        distance = NuVecXZDist(&object->position, &packet->fallback, &diff);
+        if (distance == 0.0f) {
+            diff.x = packet->param;
+            diff.y = 0.0f;
+            diff.z = 0.0f;
+        } else {
+            NuVecScale(&diff, &diff, packet->param / distance);
+        }
+        NuVecAdd(&packet->dest, &object->position, &diff);
+        packet->stopping = 0.0f;
+        return;
+    }
+    fn_8008DCE0(system, packet, object, checks);
+}
+
+static inline void aiCircle(void *system, struct aimvpacket_s *packet, struct aimvobject_s *object, s32 checks)
+{
+    f32 radius;
+    struct aimvvec_s diff;
+    s32 angle;
+    struct aimvvec_s circle;
+
+    radius = packet->param < packet->fallbackstop ? packet->fallbackstop : packet->param;
+    NuVecSub(&diff, &object->position, &packet->fallback);
+    angle = fn_8000ABDC(diff.x, diff.z);
+    diff.x = 0.0f;
+    diff.z = radius;
+    NuVecRotateY(&diff, &diff, angle);
+    NuVecAdd(&circle, &packet->fallback, &diff);
+    if (packet->flags & 0x400000) {
+        angle = NuAngSub(angle, 0x4000);
+    } else {
+        angle = NuAngAdd(angle, 0x4000);
+    }
+    diff.x = 0.0f;
+    diff.y = 0.0f;
+    diff.z = 0.5f;
+    NuVecRotateY(&diff, &diff, angle);
+    NuVecAdd(&packet->dest, &circle, &diff);
+    packet->flags |= 0x200000;
+    packet->stopping = 0.0f;
+}
+
+void fn_8008EAC4(void *system, void *packetArg, void *objectArg, s32 checks)
+{
+    struct aimvpacket_s *packet = packetArg;
+    struct aimvobject_s *object = objectArg;
+
+    packet->flags &= ~2;
+    if (lbl_80408DA0 && lbl_80408DA0(system, packet, object)) {
+        packet->flags |= 0x800;
+        packet->flags2 |= 0x80000000;
+        return;
+    }
+    if (!packet->path || !packet->cnx) {
+        packet->dest = object->position;
+        packet->stopping = 0.0f;
+        if ((packet->flags >> 29) == 1) {
+            packet->dest = packet->fallback;
+            packet->stopping = packet->fallbackstop;
+        }
+        return;
+    }
+    packet->dest = object->position;
+    packet->stopping = 0.0f;
+    switch ((s32)(packet->flags >> 29)) {
+    case 0:
+        break;
+    case 1:
+        fn_8008CF0C(system, packet, object, checks);
+        break;
+    case 6:
+        aiMoveAvoidingCamera(system, packet, object, checks);
+        break;
+    case 2:
+        aiRetreat(system, packet, object, checks);
+        break;
+    case 3:
+        aiCircle(system, packet, object, checks);
+        break;
+    case 4:
+        fn_8008E650(system, packet, object, checks);
+        break;
+    }
+    packet->flags &= 0x1fffffff;
+}
+
+struct aiwdvec_s { f32 x, y, z; };
+struct aiwdcnx_s {
+    u8 nodes[2];
+    u8 pad2[2];
+    s32 blocked[2];
+    u8 padc[0xa];
+    u16 routemask;
+};
+struct aiwdnode_s {
+    u8 pad0[4];
+    struct aiwdvec_s position;
+    u8 pad10[4];
+    f32 radius;
+    u8 pad18[0x10];
+    u8 count;
+    u8 pad29[7];
+    struct aiwdcnx_s **connections;
+    u8 pad34[0x22];
+    u16 boundarymask;
+};
+struct aiwdpath_s { u8 pad0[0x78]; struct aiwdnode_s *nodes; };
+struct aiwdpacket_s {
+    u8 pad0[0x80];
+    struct aiwdvec_s dest;
+    f32 stopping;
+    u8 pad90[0x67];
+    u8 targetdir;
+    u8 padf8[8];
+    struct aiwdvec_s terrain;
+    struct aiwdpath_s *path;
+    struct aiwdcnx_s *cnx;
+    u8 direction;
+    u8 pad115[0x1b];
+    struct aiwdnode_s *goal;
+    u8 pad134[8];
+    struct aiwdcnx_s *target;
+    u8 pad140[0xc];
+    struct aiwdvec_s right;
+    struct aiwdvec_s left;
+    u8 pad164[6];
+    u8 route;
+    u8 pad16b[0x35];
+    u32 flags;
+};
+struct aiwdobject_s {
+    u8 pad0[0x6c];
+    struct aiwdvec_s position;
+    u8 pad78[0x44];
+    f32 radius;
+    u8 padc0[0x1d1];
+    u8 field291;
+};
+extern u32 NuRandInt(void);
+
+void fn_8008E650(void *system, struct aimvpacket_s *packetArg, struct aimvobject_s *objectArg, s32 checks)
+{
+    struct aiwdpacket_s *packet = (struct aiwdpacket_s *)packetArg;
+    struct aiwdobject_s *object = (struct aiwdobject_s *)objectArg;
+    struct aiwdvec_s diff;
+    struct aiwdnode_s *node;
+    struct aiwdcnx_s *target;
+    s32 index;
+    s32 start;
+    s32 i;
+    s32 angle;
+    s32 done;
+
+    if (packet->target) {
+        index = packet->cnx->nodes[packet->direction == 0];
+        if (packet->target->nodes[0] != index && packet->target->nodes[1] != index) {
+            packet->target = 0;
+        }
+    }
+    if (!packet->target) {
+        index = packet->cnx->nodes[packet->direction == 0];
+        node = &packet->path->nodes[index];
+        start = NuRandInt() % node->count;
+        for (i = 0; i < node->count; i++) {
+            packet->target = target = node->connections[(i + start) % node->count];
+            if (target != packet->cnx) {
+                if (packet->route == 0xff || ((s32)((u64)target->routemask >> packet->route) & 1) ||
+                    ((s32)((u64)node->boundarymask >> packet->route) & 1)) {
+                    if (packet->target->nodes[0] == index) {
+                        packet->targetdir = 0;
+                    } else {
+                        packet->targetdir = 1;
+                    }
+                    if (!packet->target->blocked[packet->targetdir]) {
+                        break;
+                    }
+                }
+            }
+            packet->target = 0;
+        }
+    }
+    if (packet->target) {
+        packet->flags |= 0x800;
+        if (fn_8008ACD8(system, (f32 *)&packet->terrain, (struct aiinspath_s *)packet->path, (struct aiinscnx_s *)packet->target, checks,
+                        (struct aiinscnx_s *)packet->cnx, packet->route, object->field291, 0, object->radius, 0)) {
+            AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)&object->position, (struct aiscxcnx_s *)packet->target, packet->targetdir);
+            index = packet->cnx->nodes[packet->direction == 0];
+            packet->goal = &packet->path->nodes[index];
+            packet->dest = packet->goal->position;
+            packet->stopping = 0.0f;
+            packet->target = 0;
+        } else {
+            index = packet->target->nodes[packet->targetdir == 0];
+            node = &packet->path->nodes[index];
+            packet->dest = node->position;
+            packet->stopping = 0.0f;
+            if (fn_8008BCC0(system, (struct aiinspacket_s *)packet, (struct aiinsobject_s *)object, (struct aiinscnx_s *)packet->cnx, (struct aiinscnx_s *)packet->target)) {
+                done = 0;
+                if (packet->flags & 0x02000000) {
+                    NuVecSub(&diff, &packet->left, &object->position);
+                    angle = fn_8000ABDC(diff.x, diff.z);
+                    NuVecSub(&diff, &packet->dest, &object->position);
+                    if (NuAngSub(fn_8000ABDC(diff.x, diff.z), angle) < 0) {
+                        packet->dest = packet->left;
+                        done = 1;
+                    }
+                }
+                if (!done && (packet->flags & 0x04000000)) {
+                    NuVecSub(&diff, &packet->right, &object->position);
+                    angle = fn_8000ABDC(diff.x, diff.z);
+                    NuVecSub(&diff, &packet->dest, &object->position);
+                    if (NuAngSub(fn_8000ABDC(diff.x, diff.z), angle) > 0) {
+                        packet->dest = packet->right;
+                    }
+                }
+            }
+        }
+    } else {
+        index = packet->cnx->nodes[packet->direction == 0];
+        node = &packet->path->nodes[index];
+        if (fn_8000CDFC(&object->position, &node->position, &diff) < node->radius) {
+            AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)&object->position, (struct aiscxcnx_s *)packet->cnx, packet->direction == 0);
+            index = packet->cnx->nodes[packet->direction == 0];
+            node = &packet->path->nodes[index];
+            packet->goal = node;
+        }
+        packet->dest = node->position;
+        packet->stopping = 0.0f;
+    }
+}
+
+struct airtvec_s { f32 x, y, z; };
+struct airtcnx_s {
+    u8 nodes[2];
+    u8 pad2[2];
+    u32 blocked[2];
+    u8 padc[0xa];
+    u16 routemask;
+    f32 distance;
+};
+struct airtnode_s {
+    u8 pad0[4];
+    struct airtvec_s position;
+    u8 pad10[0x18];
+    u8 count;
+    u8 pad29[7];
+    struct airtcnx_s **connections;
+    u8 pad34[0x20];
+    u16 membership;
+    u16 boundary;
+};
+struct airtpath_s { u8 pad0[0x78]; struct airtnode_s *nodes; };
+struct airtpacket_s {
+    u8 pad0[0x80];
+    struct airtvec_s dest;
+    f32 stopping;
+    u8 pad90[0x67];
+    u8 targetdir;
+    u8 padf8[8];
+    struct airtvec_s terrain;
+    struct airtpath_s *path;
+    struct airtcnx_s *cnx;
+    u8 direction;
+    u8 pad115[7];
+    f32 dist;
+    u8 pad120[0x10];
+    struct airtnode_s *goal;
+    u8 pad134[8];
+    struct airtcnx_s *target;
+    u8 pad140[0xc];
+    struct airtvec_s right;
+    struct airtvec_s left;
+    u8 pad164[6];
+    u8 route;
+    u8 pad16b[0x19];
+    struct airtpath_s *fpath;
+    struct airtcnx_s *fcnx;
+    u8 pad18c[8];
+    f32 fdist;
+    u8 pad198[8];
+    u32 flags;
+};
+struct airtobject_s {
+    u8 pad0[0x6c];
+    struct airtvec_s position;
+    u8 pad78[0x44];
+    f32 radius;
+    u8 padc0[0x1d1];
+    u8 field291;
+};
+extern f32 fn_8008A370(struct airtpath_s *, s32, s32, s32, s32);
+
+void fn_8008DCE0(void *system, struct aimvpacket_s *packetArg, struct aimvobject_s *objectArg, s32 checks)
+{
+    struct airtpacket_s *packet = (struct airtpacket_s *)packetArg;
+    struct airtobject_s *object = (struct airtobject_s *)objectArg;
+    struct airtvec_s diff;
+    struct airtvec_s *pos;
+    struct airtpath_s *path;
+    struct airtcnx_s *cnx;
+    struct airtcnx_s *dcnx;
+    struct airtcnx_s *target;
+    struct airtnode_s *node;
+    struct airtnode_s *enode;
+    struct airtnode_s *rnode;
+    f32 param;
+    f32 partA;
+    f32 partB;
+    f32 destA;
+    f32 destB;
+    f32 best;
+    f32 candidate;
+    s32 direction;
+    s32 endnode;
+    s32 index;
+    s32 start;
+    s32 i;
+    s32 angle;
+    s32 done;
+
+    if (!packet->cnx || !packet->fcnx || (path = packet->path) != packet->fpath) {
+        return;
+    }
+    dcnx = packet->fcnx;
+    if (packet->cnx == dcnx) {
+        direction = 0;
+        if (packet->dist < packet->fdist) {
+            direction = 1;
+        }
+        AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)&object->position, (struct aiscxcnx_s *)dcnx, direction);
+    } else {
+        param = packet->dist;
+        best = 0.0f;
+        direction = 0;
+        if (param > 1.0f) {
+            param = 1.0f;
+        } else if (param < 0.0f) {
+            param = 0.0f;
+        }
+        partA = fn_8000ED40(param * packet->cnx->distance);
+        partB = fn_8000ED40((1.0f - param) * packet->cnx->distance);
+        destA = fn_8000ED40(packet->fdist * packet->fcnx->distance);
+        destB = fn_8000ED40((1.0f - packet->fdist) * packet->fcnx->distance);
+        if (packet->route != 0xff && !((s32)((u64)packet->fcnx->routemask >> packet->route) & 1)) {
+            dcnx = packet->fcnx;
+            rnode = &path->nodes[dcnx->nodes[0]];
+            if ((s32)((u64)(rnode->membership & ~rnode->boundary) >> packet->route) & 1) {
+                destA = 3.4028235e38f;
+            }
+            rnode = &path->nodes[dcnx->nodes[1]];
+            if ((s32)((u64)(rnode->membership & ~rnode->boundary) >> packet->route) & 1) {
+                destB = 3.4028235e38f;
+            }
+        }
+        if (!(packet->cnx->blocked[1] & 0x40000000)) {
+            param = fn_8008A370(packet->path, packet->cnx->nodes[0], packet->fcnx->nodes[0], packet->route, 0) + partA + destA;
+            if (param > best) {
+                best = param;
+                direction = 1;
+            }
+            param = fn_8008A370(packet->path, packet->cnx->nodes[0], packet->fcnx->nodes[1], packet->route, 0) + partA + destB;
+            if (param > best) {
+                best = param;
+                direction = 1;
+            }
+        }
+        if (!(packet->cnx->blocked[0] & 0x40000000)) {
+            param = fn_8008A370(packet->path, packet->cnx->nodes[1], packet->fcnx->nodes[0], packet->route, 0) + partB + destA;
+            if (param > best) {
+                best = param;
+                direction = 0;
+            }
+            param = fn_8008A370(packet->path, packet->cnx->nodes[1], packet->fcnx->nodes[1], packet->route, 0) + partB + destB;
+            if (param > best) {
+                direction = 0;
+            }
+        }
+        AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)&object->position, (struct aiscxcnx_s *)packet->cnx, direction);
+    }
+    pos = &object->position;
+    endnode = packet->cnx->nodes[packet->direction == 0];
+    packet->goal = &path->nodes[endnode];
+    if (packet->target) {
+        index = packet->cnx->nodes[packet->direction == 0];
+        if (packet->target->nodes[0] != index && packet->target->nodes[1] != index) {
+            packet->target = 0;
+        }
+    }
+    if (!packet->target) {
+        index = packet->cnx->nodes[packet->direction == 0];
+        node = &packet->path->nodes[index];
+        start = NuRandInt() % node->count;
+        for (i = 0; i < node->count; i++) {
+            packet->target = target = node->connections[(i + start) % node->count];
+            if (target != packet->cnx &&
+                (packet->route == 0xff || ((s32)((u64)target->routemask >> packet->route) & 1) ||
+                 ((s32)((u64)node->boundary >> packet->route) & 1))) {
+                direction = 1;
+                if (packet->target->nodes[0] == index) {
+                    direction = 0;
+                }
+                if (!packet->target->blocked[direction]) {
+                    break;
+                }
+            }
+            packet->target = 0;
+        }
+    }
+    if (!packet->target) {
+        cnx = packet->cnx;
+        start = cnx->nodes[packet->direction];
+        enode = &path->nodes[start];
+        for (i = 0; i < enode->count; i++) {
+            packet->target = target = enode->connections[i];
+            if (target != cnx) {
+                direction = 1;
+                if (target->nodes[0] == start) {
+                    direction = 0;
+                }
+                if (target->blocked[direction]) {
+                    goto next;
+                }
+                AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)pos, (struct aiscxcnx_s *)cnx, packet->direction == 0);
+                endnode = packet->cnx->nodes[packet->direction == 0];
+                packet->goal = &path->nodes[endnode];
+                break;
+            }
+        next:
+            packet->target = 0;
+        }
+    }
+    if (packet->target) {
+        if (fn_8008ACD8(system, (f32 *)&packet->terrain, (struct aiinspath_s *)packet->path, (struct aiinscnx_s *)packet->target, checks,
+                        (struct aiinscnx_s *)packet->cnx, packet->route, object->field291, 0, object->radius, 0)) {
+            if (packet->target->nodes[0] == endnode) {
+                AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)pos, (struct aiscxcnx_s *)packet->target, 0);
+            } else {
+                AISysCharacterSetPathCnx((struct aiscxpacket_s *)packet, (f32 *)pos, (struct aiscxcnx_s *)packet->target, 1);
+            }
+            endnode = packet->cnx->nodes[packet->direction == 0];
+            packet->goal = &path->nodes[endnode];
+            packet->dest = packet->goal->position;
+            packet->stopping = 0.0f;
+            packet->target = 0;
+        } else {
+            index = packet->target->nodes[packet->targetdir == 0];
+            node = &packet->path->nodes[index];
+            packet->dest = node->position;
+            packet->stopping = 0.0f;
+            if (fn_8008BCC0(system, (struct aiinspacket_s *)packet, (struct aiinsobject_s *)object, (struct aiinscnx_s *)packet->cnx, (struct aiinscnx_s *)packet->target)) {
+                done = 0;
+                if (packet->flags & 0x02000000) {
+                    NuVecSub(&diff, &packet->left, pos);
+                    angle = fn_8000ABDC(diff.x, diff.z);
+                    NuVecSub(&diff, &packet->dest, pos);
+                    if (NuAngSub(fn_8000ABDC(diff.x, diff.z), angle) < 0) {
+                        packet->dest = packet->left;
+                        done = 1;
+                    }
+                }
+                if (!done && (packet->flags & 0x04000000)) {
+                    NuVecSub(&diff, &packet->right, pos);
+                    angle = fn_8000ABDC(diff.x, diff.z);
+                    NuVecSub(&diff, &packet->dest, pos);
+                    if (NuAngSub(fn_8000ABDC(diff.x, diff.z), angle) > 0) {
+                        packet->dest = packet->right;
+                    }
+                }
+            }
+        }
+    } else {
+        packet->dest = packet->goal->position;
+        packet->stopping = 0.0f;
+    }
+}
+
+struct aidncnx_s {
+    u8 nodes[2];
+    u8 pad2[0x14];
+    u16 routemask;
+    f32 distance;
+};
+struct aidnnode_s {
+    u8 pad0[0x2e];
+    u8 cachenodes[2];
+    struct aidncnx_s **connections;
+    f32 cache[2];
+    u8 pad3c[0x18];
+    u16 membership;
+    u8 pad56[2];
+};
+struct aidnroute_s {
+    char *name;
+    u8 *noderoutes;
+    u8 pad8[4];
+    u8 *exitnodes;
+    u8 routecount;
+    u8 exitcount;
+    u8 pad12[2];
+    u8 **routenodes;
+    u8 pad18[0x10];
+};
+struct aidnpath_s {
+    u8 pad0[0x78];
+    struct aidnnode_s *nodes;
+    u8 pad7c[4];
+    u8 **matrix;
+    struct aidnroute_s *routes;
+};
+extern char str_AIPathNodeDistanceToPathNode_SpecialRouteProblem[];
+extern void (*fn_8000995C(char *file, s32 line))(char *fmt, ...);
+
+f32 fn_8008A370(struct airtpath_s *pathArg, s32 start, s32 dest, s32 routeIndex, s32 mask)
+{
+    struct aidnpath_s *path = (struct aidnpath_s *)pathArg;
+    struct aidnnode_s *startnode;
+    struct aidnnode_s *node;
+    struct aidnnode_s *destination;
+    struct aidncnx_s *cnx;
+    struct aidncnx_s *previous;
+    struct aidnroute_s *route;
+    f32 *cached;
+    f32 distance;
+    f32 nearest;
+    f32 first;
+    f32 second;
+    f32 candidate;
+    s32 index;
+    s32 i;
+    u32 bit;
+    u8 from;
+    u8 to;
+    u8 ci;
+
+    distance = 0.0f;
+    previous = 0;
+    route = 0;
+    cached = 0;
+    if (!path->matrix) {
+        return 3.4028235e38f;
+    }
+    if (start == dest) {
+        return distance;
+    }
+    startnode = &path->nodes[start];
+    destination = &path->nodes[dest];
+    if (mask == 0 && routeIndex == 0xff) {
+        if (startnode->cachenodes[0] == dest) {
+            return startnode->cache[0];
+        }
+        if (startnode->cachenodes[1] == dest) {
+            return startnode->cache[1];
+        }
+        startnode->cachenodes[1] = startnode->cachenodes[0];
+        startnode->cache[1] = startnode->cache[0];
+        startnode->cachenodes[0] = dest;
+        cached = &startnode->cache[0];
+        *cached = distance;
+    }
+    node = startnode;
+    index = node - path->nodes;
+    if (routeIndex != 0xff) {
+        route = &path->routes[routeIndex];
+        if (!((s32)((u64)node->membership >> routeIndex) & 1)) {
+            return 3.4028235e38f;
+        }
+    }
+    while (node != destination) {
+        if (route) {
+            if ((s32)((u64)destination->membership >> routeIndex) & 1) {
+                from = route->noderoutes[index];
+                if (from < route->routecount && (to = route->noderoutes[dest]) < route->routecount) {
+                    ci = route->routenodes[from][to];
+                } else {
+                    fn_8000995C(lbl_8019C6DC, 0xebb)(str_AIPathNodeDistanceToPathNode_SpecialRouteProblem, route->name, index, dest);
+                    ci = 0xff;
+                }
+            } else {
+                nearest = 3.4028235e38f;
+                for (i = 0; i < route->exitcount; i++) {
+                    if (route->exitnodes[i] == start) {
+                        first = 0.0f;
+                    } else {
+                        first = fn_8008A370(pathArg, start, route->exitnodes[i], routeIndex, 0);
+                    }
+                    if (route->exitnodes[i] == dest) {
+                        second = 0.0f;
+                    } else {
+                        second = fn_8008A370(pathArg, route->exitnodes[i], dest, 0xff, (u32)((u64)1 << routeIndex));
+                    }
+                    candidate = first + second;
+                    if (candidate < nearest) {
+                        nearest = candidate;
+                    }
+                }
+                if (nearest != 3.4028235e38f) {
+                    distance += nearest;
+                    break;
+                }
+                if (cached) {
+                    *cached = 3.4028235e38f;
+                }
+                return 3.4028235e38f;
+            }
+        } else {
+            ci = path->matrix[index][dest];
+        }
+        if (ci == 0xff) {
+            if (cached) {
+                *cached = 3.4028235e38f;
+            }
+            return 3.4028235e38f;
+        }
+        cnx = node->connections[ci];
+        if (!cnx) {
+            return 3.4028235e38f;
+        }
+        if (cnx->routemask & mask) {
+            if (cached) {
+                *cached = 3.4028235e38f;
+            }
+            return 3.4028235e38f;
+        }
+        if (previous == cnx) {
+            break;
+        }
+        previous = cnx;
+        if (index == cnx->nodes[0]) {
+            index = cnx->nodes[1];
+        } else {
+            index = cnx->nodes[0];
+        }
+        distance += cnx->distance;
+        node = &path->nodes[index];
+    }
+    if (cached) {
+        *cached = distance;
+    }
+    return distance;
+}

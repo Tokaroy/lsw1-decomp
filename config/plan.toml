@@ -337,7 +337,7 @@ functions = [
   "fn_8008F180",
   "fn_8008F3D4",
 ]
-note = "OpenSaga leads; include/game/ai.h."
+note = "Pass 1: 13 new strict VERIFIED (10,912 B). Parked: fn_8008B79C 143/163 (cnx/target r24/r25 swap only), fn_8008ACD8 = WithinConnection 276/331 (callee-saved allocation only). Open (short handoff, m2c only): fn_8008C13C 167/395, fn_8008C768 171/416, fn_8008CF0C (AIMoveToDestination); they need formation/packet struct recovery. OpenSaga leads; include/game/ai.h."
 # at revision 1: 22 functions, 20,364 bytes left
 
 [[stage.item]]
