@@ -122,6 +122,13 @@ child-hour, compile errors 69% → 4%). Give them to every child and sprint.
    then move to the next function ([gaps 16 and
    17](workflow_gaps.md#16-children-got-single-functions-not-items)). Strict-only
    functions are not targets: `plan.py` lists them apart (gap 15).
+7. **Ramp up each provider separately.** Start with one child on a representative
+   item and use its first verified checkpoint to decide whether to add another.
+   A batch of launches in quick succession can hit a provider's short-window
+   limit before any child can report back. On a provider rate-limit error, stop
+   launching work there and preserve the affected worktrees. Recover strict
+   matches and plateau notes before retrying with a smaller batch. Checkpoint
+   verified work during the item so an interrupted child leaves a usable result.
 
 Keep fixes reproducible and test the behavior they change. m2c changes belong in
 `tools/patches/m2c-*.patch`, applied by `tools/fetch_m2c.sh` to its pinned checkout.
