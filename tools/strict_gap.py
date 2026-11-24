@@ -43,7 +43,7 @@ def candidates(report: dict, min_percent: float) -> list[dict]:
 def strict_match(name: str) -> bool:
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
-        code = vf.main([name, "--strict-symbols", "--json", "--allow-stale"])
+        code = vf.main([name, "--strict-symbols", "--json", "--allow-stale", "--quiet"])
     return code == 0
 
 

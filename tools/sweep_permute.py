@@ -33,20 +33,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import permute_setup  # noqa: E402
+import jobs as shared_jobs  # noqa: E402
+from score_fn import splice_body  # noqa: E402
 import sweep  # noqa: E402
 from variant_search import VariantError, find_function  # noqa: E402
 
 PERMUTE = ROOT / "work" / "permute" / "sweep"
-
-
-def splice(text: str, name: str, body: str) -> str:
-    """TEXT with NAME's definition replaced by BODY, or BODY appended (as score_fn --body)."""
-    body = body.strip("\n")
-    try:
-        fn = find_function(text, name)
-        return fn.before + body + fn.tail[1:]
-    except VariantError:
-        return text.rstrip("\n") + "\n\n" + body + "\n"
 
 
 def definition(text: str, name: str) -> str:
@@ -101,7 +93,7 @@ def permute_one(row: dict, seconds: float, jobs: int) -> dict:
     cand_dir = sweep.OUT / name / "candidate"
     cand_dir.mkdir(parents=True, exist_ok=True)
     cand = cand_dir / source.name
-    cand.write_text(splice(source.read_text(), name, draft))
+    cand.write_text(splice_body(source.read_text(), name, draft))
     out = PERMUTE / name
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "permute_setup.py"), name,
                         "--source", str(cand), "--out", str(out), "--force"],
@@ -163,7 +155,7 @@ def main(argv=None) -> int:
     ap.add_argument("--min-ratio", type=float, default=0.9, help="lowest exact-instruction ratio")
     ap.add_argument("--seconds", type=float, default=120, help="wall-clock limit per function")
     ap.add_argument("--parallel", type=int, default=4, help="functions permuted at once")
-    ap.add_argument("-j", type=int, help="permuter threads per function (default: cores / parallel)")
+    ap.add_argument("-j", type=int, help="permuter threads per function (default: LSW1_JOBS or cores / active worktrees, / parallel)")
     ap.add_argument("--improved", action="store_true",
                     help="only the previous run's IMPROVED rows (a longer second pass)")
     ap.add_argument("--apply", action="store_true", help="write confirmed matches into unit sources")
@@ -200,7 +192,7 @@ def main(argv=None) -> int:
         moved = {r["name"] for r in json.loads(prev.read_text()) if r["verdict"] == "IMPROVED"} \
             if prev.is_file() else set()
         todo = [r for r in todo if r["name"] in moved]
-    jobs = args.j or max(1, (os.cpu_count() or 4) // args.parallel)
+    jobs = args.j or max(1, shared_jobs.default_jobs() // args.parallel)
     rows = []
     print(f"permuting {len(todo)} near-misses, {args.parallel} at a time, {args.seconds:.0f} s each, "
           f"-j {jobs}", file=sys.stderr)

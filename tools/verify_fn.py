@@ -35,7 +35,10 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Iterator, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobs as shared_jobs  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SYMBOLS = ROOT / "config/GL5E4F/symbols.txt"
@@ -353,8 +356,8 @@ def load_dol(path: Optional[Path], notes: list[str]) -> Optional[Dol]:
     return Dol(path)
 
 
-def lookup_unit(addr: int) -> Optional[str]:
-    """Return the unit path (e.g. 'numath/nuvec') whose split covers addr."""
+def text_split_ranges() -> Iterator[tuple[int, int, str]]:
+    """Yield text split boundaries and unit paths in split-file order."""
     cur = None
     start_re = re.compile(r"start:0x([0-9A-Fa-f]+)\s+end:0x([0-9A-Fa-f]+)")
     try:
@@ -371,8 +374,14 @@ def lookup_unit(addr: int) -> Optional[str]:
             continue
         m = start_re.search(s)
         if m and cur and s.startswith(".text"):
-            if int(m.group(1), 16) <= addr < int(m.group(2), 16):
-                return cur.rsplit(".", 1)[0]
+            yield int(m.group(1), 16), int(m.group(2), 16), cur.rsplit(".", 1)[0]
+
+
+def lookup_unit(addr: int, ranges: Iterable[tuple[int, int, str]] | None = None) -> Optional[str]:
+    """Return the unit whose text split covers addr, using a snapshot if provided."""
+    for start, end, unit in text_split_ranges() if ranges is None else ranges:
+        if start <= addr < end:
+            return unit
     return None
 
 
@@ -949,7 +958,7 @@ def ensure_fresh(obj: Path, unit: str, build: bool, allow_stale: bool) -> None:
         if not ninja_file.is_file():
             raise ToolError("build.ninja is missing; run `python3 configure.py` first")
         try:
-            proc = subprocess.run(["ninja", str(rel)], cwd=ROOT, capture_output=True,
+            proc = subprocess.run(shared_jobs.ninja(str(rel)), cwd=ROOT, capture_output=True,
                                   text=True, timeout=600)
         except (OSError, subprocess.TimeoutExpired) as e:
             raise ToolError(f"could not run ninja: {e}")

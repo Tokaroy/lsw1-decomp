@@ -45,6 +45,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobs as shared_jobs  # noqa: E402
 
 DOC = ROOT / "docs" / "sweep_blockers.md"
 REPORT_VERSION = "1"  # bump when the cached rescore payload changes shape
@@ -620,7 +621,7 @@ def main(argv=None) -> int:
                     help="with --compare: compare against this --json instead of the current sweep")
     ap.add_argument("--class", dest="cls", metavar="NAME", help="list one class's functions, smallest first")
     ap.add_argument("--limit", type=int, default=0, help="with --class: at most N functions (0: all)")
-    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) - 2), help="parallel rescores")
+    ap.add_argument("--jobs", type=int, default=shared_jobs.default_jobs(), help="parallel rescores")
     ap.add_argument("--no-cache", action="store_true", help="rescore every draft instead of using the cache")
     args = ap.parse_args(argv)
 

@@ -61,6 +61,33 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(len(order), 1)
         self.assertEqual(len(order[0].options[0]), vs.MAX_DECLS)
 
+    def test_declaration_orders_preserve_initializer_binding(self):
+        fn = vs.find_function("""void f(struct model *model)
+{
+    struct anim *anim = model->anim;
+    f32 playback = anim->rate;
+    s32 wrapped = 0;
+    consume(playback, wrapped);
+}
+""", "f")
+        dims, _ = vs.build_dimensions(fn)
+        [order] = [d for d in dims if d.kind == "order"]
+        self.assertEqual(order.options, [(0, 1, 2), (0, 2, 1), (2, 0, 1)])
+
+    def test_decl_order_preserves_array_and_initializer_dependencies(self):
+        src = """void f(void)
+{
+    s32 size = 16;
+    char name[size];
+    char *buffer = name;
+    s32 count = 0;
+    use(buffer, count);
+}
+"""
+        dims, _ = vs.build_dimensions(vs.find_function(src, "f"))
+        order, = (d for d in dims if d.kind == "order")
+        self.assertEqual(order.options, [(0, 1, 2, 3), (0, 1, 3, 2), (0, 3, 1, 2), (3, 0, 1, 2)])
+
     def test_assignment_after_texture_locals_is_not_a_declaration(self):
         src = ("void NuMtlRender(s32 fh)\n{\n"
                "    s32 count;\n    s32 i;\n    s32 k;\n"

@@ -38,6 +38,7 @@ DOL = ROOT / "orig/GL5E4F/sys/main.dol"
 SYMBOLS = ROOT / "config/GL5E4F/symbols.txt"
 SCRIPTS_DIR = ROOT / "tools/ghidra_scripts"
 sys.path.insert(0, str(ROOT / "tools"))
+import jobs as shared_jobs  # noqa: E402
 
 
 def primary_checkout() -> Path:
@@ -581,7 +582,7 @@ def main(argv=None) -> int:
     p.add_argument("--if-missing", action="store_true",
                    help="do nothing if the project exists or Ghidra is not installed (bootstrap)")
     p.add_argument("--analysis-timeout", type=int, default=1800, help="seconds")
-    p.add_argument("--max-cpu", type=int, default=max(1, (os.cpu_count() or 2) // 2))
+    p.add_argument("--max-cpu", type=int, default=shared_jobs.default_jobs())
     p.set_defaults(func=cmd_setup)
     p = sub.add_parser("sync", help="re-apply symbols.txt names to the project")
     p.set_defaults(func=cmd_sync)
@@ -594,7 +595,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("setup-pc", help="import the Japanese PC exe and apply paired GC names (opt-in)")
     p.add_argument("--force", action="store_true", help="discard and re-import an existing PC project")
     p.add_argument("--analysis-timeout", type=int, default=1800, help="seconds")
-    p.add_argument("--max-cpu", type=int, default=max(1, (os.cpu_count() or 2) // 2))
+    p.add_argument("--max-cpu", type=int, default=shared_jobs.default_jobs())
     p.set_defaults(func=cmd_setup_pc)
     p = sub.add_parser("decompile-pc", help="decompile the x86 pair of GC functions (names or 0x addresses)")
     p.add_argument("targets", nargs="+")

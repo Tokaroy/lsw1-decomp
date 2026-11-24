@@ -62,6 +62,7 @@ from m2c_helpers import (split_args, expand_macros, fold_cror, fold_ps, fix_ps_c
                          moves_to_args, type_derefs, strip_vararg_saves, declare_unset,
                          call_sites, PS_CALLS, prepare_asm, repair_indirect_prototypes)
 import sweep_repairs  # noqa: E402  (registers every repair module)
+import jobs as shared_jobs  # noqa: E402
 # Repairs live in tools/sweep_repairs/; re-exported for the tools and tests that use them here.
 from sweep_repairs._common import call_args  # noqa: E402,F401
 from sweep_repairs.callees import float_blocks, int_callees, void_callees, wide_return  # noqa: E402,F401
@@ -253,7 +254,7 @@ CACHE_ROOT = Path(os.environ.get("LSW1_SWEEP_CACHE") or Path.home() / ".cache/ls
 # keying on them dropped the whole cache on most merges.
 SCORE_TOOLS = ("score_fn.py", "prodg_cc.py", "verify_fn.py", "verify_unit.py", "hillclimb.py",
                "variant_search.py", "order_search.py", "sprint_bench.py", "sprint_metrics.py", "opensaga.py",
-               "prodg_branch_relocs.py", "strip_unused.py")
+               "prodg_branch_relocs.py", "strip_unused.py", "jobs.py")
 SCORE_CONFIG: tuple[str, ...] = ()
 CACHED_VERDICTS = {"MATCH", "MISMATCH", "COMPILE-ERROR"}
 USE_CACHE = True
@@ -554,7 +555,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--unit", help="unit prefix, as for next_target.py")
     ap.add_argument("--max-size", default="0x100000", help="largest function to sweep")
-    ap.add_argument("-j", type=int, default=16, help="parallel jobs")
+    ap.add_argument("-j", type=int, default=shared_jobs.default_jobs(),
+                    help="parallel jobs (default: LSW1_JOBS or cores / active worktrees)")
     ap.add_argument("--apply", action="store_true", help="write strict MATCHes into their unit sources")
     ap.add_argument("--top", type=int, default=30, help="near-misses to print")
     ap.add_argument("--no-cache", action="store_true",

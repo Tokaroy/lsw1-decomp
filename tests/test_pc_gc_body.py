@@ -2,7 +2,9 @@
 import struct
 import sys
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -152,6 +154,40 @@ class VetoTest(unittest.TestCase):
 
 
 class TablesTest(unittest.TestCase):
+    def test_parallel_pack_requests_share_one_generation(self):
+        started = threading.Barrier(4)
+        builds = []
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            exe = output / "game.exe"
+
+            def generate(*args, **kwargs):
+                builds.append(args)
+                # Give the other requests time to see the same cold directory.
+                threading.Event().wait(0.05)
+                for name in ("gc_pc_anchors.tsv", "pc_functions.tsv"):
+                    (output / name).touch()
+                return mock.Mock(returncode=0)
+
+            def request(index):
+                started.wait()
+                if index % 2:
+                    return pc_gc_anchors.donor_markdown(0x80000000)
+                return pc_gc_body.write_task_body("f", output)[1]
+
+            with (mock.patch.object(pc_gc_body.shutil, "which", return_value="objdump"),
+                  mock.patch.object(pc_gc_body, "gc_function", return_value=None),
+                  mock.patch.object(pc_gc_anchors, "OUT_DIR", output),
+                  mock.patch.object(pc_gc_body, "OUT_DIR", output),
+                  mock.patch.object(pc_gc_anchors, "find_exe", return_value=exe),
+                  mock.patch.object(pc_gc_anchors.subprocess, "run", side_effect=generate),
+                  ThreadPoolExecutor(4) as pool):
+                results = list(pool.map(request, range(4)))
+
+        self.assertEqual(len(builds), 1)
+        self.assertIn("is not a GC function", results[0])
+        self.assertIn("No pair for this function", results[1])
+
     def test_load_tables_reads_audit_column_and_confirmed_globals(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)

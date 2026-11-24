@@ -44,6 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sdk_import_symbols as sym  # noqa: E402
+import jobs as shared_jobs  # noqa: E402
 import sdk_probe  # noqa: E402
 import verify_fn as vf  # noqa: E402
 from rejected_renames import load_rejected  # noqa: E402
@@ -706,7 +707,7 @@ def apply(plan: Plan, sdk: Path, raw_obj: Path, verify: bool, accept: bool = Fal
 
     target_obj = ROOT / "build/GL5E4F/obj" / f"dolphin/{unit}.o"
     run([sys.executable, "configure.py"], "configure.py")
-    run(["ninja", str(target_obj.relative_to(ROOT))], "split target object")
+    run(shared_jobs.ninja(str(target_obj.relative_to(ROOT))), "split target object")
     texts = src_texts()
     out = compute_renames(plan, raw_obj, target_obj, sdk, texts)
     pairing, renames = out.pairing, out.renames
@@ -744,7 +745,7 @@ def apply(plan: Plan, sdk: Path, raw_obj: Path, verify: bool, accept: bool = Fal
     if not verify:
         return log
     try:
-        run(["ninja", "build/GL5E4F/main.dol"], "full build")
+        run(shared_jobs.ninja("build/GL5E4F/main.dol"), "full build")
         res = run([sys.executable, "tools/verify_unit.py", f"dolphin/{unit}", "--build", "--functions"], "verify")
         log.append(res.strip().splitlines()[-1])
         run([sys.executable, "tools/dol_compare.py", "build/GL5E4F/main.dol", "orig/GL5E4F/sys/main.dol",
