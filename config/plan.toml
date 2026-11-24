@@ -439,7 +439,7 @@ functions = [
   "Action_SnapWeaponOut",
   "Action_FaceCamera",
 ]
-note = "OpenSaga leads."
+note = "All 55 functions strict-match (final 12 functions / 8,316 B matched; OpenSaga leads reviewed). Unit stays NonMatching pending gameaiscript-1."
 # at revision 1: 55 functions, 17,744 bytes left
 
 [[stage.item]]
