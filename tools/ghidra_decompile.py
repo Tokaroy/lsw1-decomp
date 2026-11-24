@@ -472,7 +472,7 @@ def pc_context():
     if exe is None:
         raise SystemExit("error: the Japanese PC exe is not present here or in the primary checkout"
                          " (docs/research.md#pc-builds)")
-    problem = pc_gc_body.ensure_tables(exe)
+    problem = pc_gc_anchors.ensure_tables(exe)
     if problem:
         raise SystemExit(f"error: {problem}")
     names = {a: n for n, _, a, _, _, _ in parse_symbols(SYMBOLS)}

@@ -494,6 +494,43 @@ functions = [
 note = "JP PC pairs."
 # at revision 1: 9 functions, 19,120 bytes left
 
+# Parked during socksys-1.
+[[parked]]
+function = "fn_80092F94"
+reason = "Best 217/293. The layer-list entry guard and loop compare differ, and the draft emits extra animation availability checks. Recover the layer-count comparison and the inline helper that reuses the blend flag and table pointers."
+
+[[parked]]
+function = "fn_80093428"
+reason = "Best 137/139. The animation table load and index shift precede the rate multiply, and the indexed load precedes the time addition. Use the JP caller and timer body to recover the expression boundary between updating the time and querying the duration."
+
+[[parked]]
+function = "fn_80093654"
+reason = "Best 308/460. The packet update spills an extra floating-point value and omits the saved condition field despite the recovered timer argument types. Recover the step value's live range across the timer calls and the packet null-test condition reused by later branches."
+
+[[parked]]
+function = "fn_80093F68"
+reason = "Best 322/345. The root-history copy and the zero and Y-coordinate stores interleave differently in the first two branches. Recover the temporary that carries either zero or the input Y coordinate while the saved position is updated."
+
+[[parked]]
+function = "fn_800944CC"
+reason = "Best 302/689. The draft allocates 0x128 bytes of stack against the retail 0x168 and passes different root-motion callback arguments. Map stack addresses through the root-motion and locator calls to recover the matrix and callback context declarations."
+
+[[parked]]
+function = "fn_80095BA0"
+reason = "Best 298/453. The 32-rail parser emits a 0x148-byte frame against the retail 0x140 and orders the buffer cursor check differently. Recover the lifetimes of the name buffer and the inlined corner-spline bounds helpers, then start with the cursor allocation block."
+
+[[parked]]
+function = "fn_800962B4"
+reason = "Best 190/348. The three samples and pitch and yaw arrays land at the expected offsets, but the draft saves an extra register and schedules a different endpoint block. Recover the shared first-and-last endpoint block and compare the vector-copy form after the spline null test."
+
+[[parked]]
+function = "fn_80096824"
+reason = "Best 578/858. The segment generator allocates 0x58 bytes of stack against the retail 0x60, and the rail rotation cursor and plane calculations differ. Map the temporary vector passed to the plane helpers and type the buffer cursor and 0x80-byte segment record."
+
+[[parked]]
+function = "fn_80097948"
+reason = "Best 266/530. The result rail byte is initialized too early, and the segment-search and projection blocks differ. Type the position and rail bounds at entry, then recover the signed bidirectional search indices."
+
 [[stage]]
 id = "s4-gamelib-gui"
 title = "Gamelib and GUI"
