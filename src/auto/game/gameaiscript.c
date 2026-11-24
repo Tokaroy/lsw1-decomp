@@ -5042,3 +5042,74 @@ s32 Action_JudderGameCamera(s32 pad0, s32 pad1, s32 arg2, s32 arg3, s32 arg4, s3
 }
 #undef AIParamToFloat
 #undef NuStrIStr
+
+extern char str_Entity_Player2[];
+extern char str_Format_PlayerNum[];
+
+struct gameaiscript_character_name_s {
+    u8 pad_00[0xc];
+    char *name;
+};
+
+struct gameaiscript_named_object_s {
+    u8 pad_00[0x64];
+    struct gameaiscript_character_name_s *character;
+    u8 pad_68[0x1a0];
+    u32 flags;
+    s32 field_20c;
+    u8 pad_210[0x136];
+    u8 script_index;
+    u8 pad_347[0xd51];
+};
+
+struct gameaiscript_script_name_s {
+    char name[0xa8];
+};
+
+s32 GetNamedGameObject(void *sys, char *name, s32 scriptOnly)
+{
+    u8 *result = 0;
+    s32 i;
+    char playerName[64];
+
+    for (i = 0; i < lbl_8040B058; i++) {
+        struct gameaiscript_named_object_s *object = (struct gameaiscript_named_object_s *)(i * 0x1098 + (u32)lbl_80409430);
+        if (object->field_20c < 0 && (!scriptOnly || (object->flags & 0x400))) {
+            if ((object->flags & 0x400) && object->script_index != 0xff) {
+                struct gameaiscript_script_name_s *scripts = *(struct gameaiscript_script_name_s **)((u8 *)sys + 0x14);
+                struct gameaiscript_script_name_s *script = &scripts[object->script_index];
+                if (script != 0 && NuStrICmp(script->name, name) == 0) {
+                    result = (u8 *)&((struct gameaiscript_named_object_s *)lbl_80409430)[i];
+                    break;
+                }
+            }
+            if (NuStrICmp(((struct gameaiscript_named_object_s *)lbl_80409430)[i].character->name, name) == 0) {
+                result = (u8 *)&((struct gameaiscript_named_object_s *)lbl_80409430)[i];
+                break;
+            }
+        }
+    }
+
+    if (result == 0 && !scriptOnly) {
+        if (NuStrICmp(name, str_Entity_Player) == 0) {
+            result = lbl_80409004;
+        } else if (NuStrICmp(name, str_Entity_Player2) == 0) {
+            u8 *player1 = gPlayer1Pointer[0];
+            if (lbl_80409004 == player1)
+                result = gPlayer1Pointer[1];
+            else
+                result = player1;
+        } else {
+            for (i = 0; i < 8; i++) {
+                if (gPlayer1Pointer[i] != 0) {
+                    sprintf(playerName, str_Format_PlayerNum, i);
+                    if (NuStrICmp(playerName, name) == 0) {
+                        result = gPlayer1Pointer[i];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return (s32)result;
+}

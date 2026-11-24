@@ -713,3 +713,164 @@ void fn_8014BE18(PodV12 *out) {
     }
     *out = *(PodV12 *)lbl_8040B0A4;
 }
+
+typedef struct PodracePlayerTiming {
+    u8 opaque[0x62c];
+    f32 value62c;
+} PodracePlayerTiming;
+
+extern PodracePlayerTiming *gPlayer1Pointer[];
+
+void fn_80146CA4(void)
+{
+    f32 first = gPlayer1Pointer[0]->value62c;
+    f32 second;
+
+    if (first > 435.0f || (second = gPlayer1Pointer[1]->value62c) > 435.0f) {
+        fn_8006E370(133.1f);
+    } else if (first > 196.0f || second > 196.0f) {
+        fn_8006E370(59.449684f);
+    } else {
+        fn_8006E370(0.0f);
+    }
+}
+
+void fn_8007B298(char *, f32, f32, f32, f32, f32, f32, s32, u8, u8, u8, f32, s32, void *, s32, s32);
+
+extern char str_Format_StringExclaim[];
+extern char *gShopUnlockedCodeItem;
+extern f32 lbl_80409BF4;
+extern f32 lbl_80409BF8;
+extern f32 lbl_80409C30;
+extern f32 lbl_80409C34;
+extern u8 lbl_80409C38;
+
+void Shop_DrawCodeBuyFeedback(void)
+{
+    char text[256];
+
+    sprintf(text, str_Format_StringExclaim, gShopUnlockedCodeItem);
+    if (lbl_80409BF4 > 0.0f && gShopUnlockedCodeItem != NULL) {
+        if (lbl_80409BF4 == lbl_80409BF8) {
+            lbl_80409C38 = 0;
+            lbl_80409C34 = lbl_80409C30;
+        }
+        if (lbl_80409C34 <= 0.0f) {
+            lbl_80409C38 = !lbl_80409C38;
+            lbl_80409C34 = lbl_80409C30;
+        }
+        if (lbl_80409C38) {
+            fn_8007B298(text, 0.0f, -0.5f, 1.0f, 0.75f, 0.75f, 0.75f,
+                        0, 255, 255, 255, 1.0f, 1, NULL, 0, 128);
+        }
+        lbl_80409BF4 -= lbl_80408E9C;
+        lbl_80409C34 -= lbl_80408E9C;
+    }
+}
+
+typedef struct PodraceSpaceEntry {
+    u8 opaque0[0x400];
+    u32 word400;
+    f32 value404;
+    f32 value408;
+    u8 opaque40c[0x108];
+    u32 word514;
+    u32 word518;
+    u8 opaque51c[0x14];
+} PodraceSpaceEntry;
+
+typedef struct PodraceSpaceEntries {
+    u8 opaque[0x34d0];
+    PodraceSpaceEntry entries[256];
+} PodraceSpaceEntries;
+
+typedef struct PodraceSpaceScene {
+    u8 opaque0[0x198];
+    s32 level;
+    u8 opaque19c[0x17e8];
+    PodraceSpaceEntries *space;
+} PodraceSpaceScene;
+
+void fn_80146D5C(void)
+{
+    s32 i;
+    s32 offset;
+    PodraceSpaceEntry *entry;
+
+    fn_801451A4(((PodraceSpaceScene *)lbl_80409410)->space);
+    for (i = 0, offset = 0; i < 256; ++i, offset += 0x530) {
+        PodraceSpaceEntries *space = ((PodraceSpaceScene *)lbl_80409410)->space;
+        PodraceSpaceEntries *offsetSpace = (PodraceSpaceEntries *)((u8 *)space + offset);
+        offsetSpace->entries[0].word400 = 0;
+    }
+
+    if (((PodraceSpaceScene *)lbl_80409410)->level == 0x56) {
+        fn_80142BA8((s32)((PodraceSpaceScene *)lbl_80409410)->space->entries, 256);
+    }
+
+    entry = ((PodraceSpaceScene *)lbl_80409410)->space->entries;
+    for (i = 0; i < 256; ++i, ++entry) {
+        entry->value404 = entry->value408;
+        entry->word518 = entry->word514;
+    }
+}
+
+typedef struct ShopItem {
+    char name[0x40];
+    char modelName[0x30];
+    u16 id;
+    u8 type;
+    u8 unlocked;
+    s32 price;
+    u8 opaque[0x18];
+} ShopItem;
+
+typedef struct ShopSaveView {
+    u8 opaque0[0x1d0];
+    u16 extraUnlocked;
+    u8 opaque1d2[0x2e];
+    u32 extraPurchased;
+    s32 studs;
+} ShopSaveView;
+
+extern ShopSaveView lbl_803E0298;
+extern u64 lbl_803E0458[];
+extern u64 lbl_803E0460[];
+extern s32 gShopExtraItemCount;
+extern f32 lbl_80409BA4;
+extern f32 lbl_8040A7D8;
+extern char str_Shop_BuyCheat[];
+extern u8 lbl_80401834[];
+extern void fn_8006DCD4(char *, void *);
+
+s32 BuyShopItem(ShopItem *items, s32 index, s32 charge)
+{
+    ShopItem *item = (ShopItem *)((s32)(index * sizeof(ShopItem)) + (s32)items);
+    u64 *purchased;
+
+    if (item->type == 1) {
+        purchased = lbl_803E0458;
+    } else if (item->type == 0) {
+        purchased = lbl_803E0460;
+    } else if (item->type == 3) {
+        purchased = NULL;
+        if (index >= 0 && index <= gShopExtraItemCount) {
+            lbl_803E0298.extraUnlocked |= 1U << index;
+        }
+    } else {
+        purchased = NULL;
+    }
+
+    if (purchased != NULL) {
+        purchased[index / 64] |= 1ULL << (index % 64);
+    }
+    if (charge) {
+        lbl_803E0298.studs -= items[index].price;
+    }
+    items[index].unlocked = 1;
+    lbl_8040A7D8 = lbl_80409BA4;
+    if (charge) {
+        fn_8006DCD4(str_Shop_BuyCheat, lbl_80401834);
+    }
+    return 1;
+}

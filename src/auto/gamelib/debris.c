@@ -1,4 +1,5 @@
 #include "types.h"
+#include "numath/numath.h"
 
 extern u8 lbl_802B1504[];
 extern f32 lbl_80195760[];
@@ -277,7 +278,7 @@ s16 fn_8005A43C(void) {
 }
 #undef lbl_8040AE4C
 
-s32 fn_8005FF74(s32, void *, s32, s16, s16, void *);
+void fn_8005FF74(s32, void *, s32, s16, s16, void *);
 
 void fn_80063E40(s32 arg0, void *arg1, s32 arg2, s16 arg3, s16 arg4) {
     fn_8005FF74(arg0, arg1, arg2, arg3, arg4, 0);
@@ -511,7 +512,6 @@ check:
     return r;
 }
 
-f32 NuVecDist(struct nuvec_s *a, struct nuvec_s *b, struct nuvec_s *dist);
 extern f32 lbl_80195744[];
 
 f32 fn_80064A58(struct nuvec_s *arg0) {
@@ -661,6 +661,56 @@ void fn_8005A65C(s32 arg0, s32 arg1) {
             *(s32 *)(*(s16 *)(arg0 * 0x6C + *(s32 *)(g + 0x68) + 0x48) * 0x38 + *(s32 *)g + 0x2C) = 1;
         } else {
             *(s32 *)(*(s16 *)(arg0 * 0x6C + *(s32 *)(g + 0x68) + 0x48) * 0x38 + *(s32 *)g + 0x2C) = -1;
+        }
+    }
+}
+
+void fn_8000E540(struct numtx_s *, s32);
+void fn_8000E3C0(struct numtx_s *, s32);
+extern struct numtx_s lbl_801B0F08[];
+extern f32 lbl_80195640[];
+extern f32 lbl_80195644[];
+extern f32 lbl_80195648[];
+
+void fn_8005FF74(s32 effect, void *arg1, s32 arg2, s16 angleZ, s16 angleY, void *arg5)
+{
+    struct numtx_s matrix = lbl_801B0F08[0];
+    struct nuvec_s zero;
+    struct numtx_s *transform;
+    struct nuvec_s *offset;
+    s8 *definition;
+    s32 duration;
+
+    fn_8000E540(&matrix, angleZ);
+    fn_8000E3C0(&matrix, angleY);
+    offset = &zero;
+    transform = &matrix;
+    zero.z = lbl_80195640[0];
+    zero.y = lbl_80195640[0];
+    zero.x = lbl_80195640[0];
+
+    if (effect >= 0 && (definition = ((s8 **)lbl_804083FC)[effect]) != NULL) {
+        switch (definition[0x2E]) {
+        case 2:
+            duration = 50000;
+            break;
+        case 3:
+            duration = 40000;
+            break;
+        case 7:
+            duration = 20000;
+            break;
+        case 0:
+        default:
+            duration = 30000;
+            break;
+        }
+        if (fn_80027348() == 0) {
+            fn_8005F254(effect, (s32)arg1, (s32)offset, arg2 * 50, (s32)transform, (s32)arg5,
+                        duration, 0, lbl_80195644[0]);
+        } else {
+            fn_8005F254(effect, (s32)arg1, (s32)offset, arg2 * 60, (s32)transform, (s32)arg5,
+                        duration, 0, lbl_80195648[0]);
         }
     }
 }

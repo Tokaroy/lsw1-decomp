@@ -27,13 +27,26 @@ struct lbl_80409410_240_s {
     u8 unk74[0x94 - 0x74];        /* first argument of fn_8000CBF4 */
 };
 
+struct NULEVELINFO_s {
+    u8 pad0[4];
+    u32 flags;
+    u8 pad8[0x41 - 8];
+    u8 mipmapMode;                /* ConfigureLevelBeforeLoad */
+    u8 pad42[4];
+    s16 unk46;                    /* fn_8010CCA0 stores a level table index */
+};
+
 /* Object behind the lbl_80409410 pointer (also read by pickups, obstacle and turret). */
 struct lbl_80409410_s {
-    u8 pad0[0x198];
+    u8 pad0[0x184];
+    void *creditBuffer;           /* passed by address to CreditBufferAlloc */
+    void *creditBufferEnd;
+    s32 configSize;               /* tested before parsing level configuration */
+    u8 pad190[8];
     s32 unk198;                   /* compared with lbl_804093B0 and level ids */
     s32 unk19C;                   /* mode: 3, 9, 0xA, 0xB, 0xD, 0x15 (pickups mode19C) */
     u8 pad1A0[0x1A8 - 0x1A0];
-    void *unk1A8;                 /* flags word at +4 (0x4000, 0x4002, 0x5000) */
+    struct NULEVELINFO_s *unk1A8;
     void *unk1AC;                 /* episode_s; also s32 at +0x18/+0x1C, pointer at +0x40 */
     u8 pad1B0[0x1B8 - 0x1B0];
     s32 unk1B8;                   /* first argument of fn_800958F8 (Maul_A) */
