@@ -2,7 +2,6 @@
 
 extern void fn_8002C3A0(s32 a, s32 b, s32 c);
 
-extern void fn_8002C644(s32 a, s32 b, s32 c);
 
 struct nustream_mtx_s {
     f32 m[16];
@@ -14,6 +13,166 @@ struct nustream_xf_s {
     f32 pos[3];
     struct nustream_mtx_s mtx;
 };
+
+/* Font glyph rectangle in texels: the 0xC-byte table at text +0x34. */
+struct nustream_glyph_s {
+    f32 u;
+    f32 v;
+    f32 w;
+};
+
+/* Vertex passed to NuRndrTriStrip3dClip (0x24 bytes). */
+struct nustream_vtx_s {
+    f32 x, y, z;
+    f32 pad[3];
+    s32 colour;
+    f32 u, v;
+};
+
+struct nustream_font_s {
+    u8 pad0[0xC2];
+    u16 digit; /* 0xC2: glyph used for fixed-width digits */
+};
+
+/* fn_8002C644's view of the stream object (same object as nustream_obj_s). */
+struct nustream_text_s {
+    u8 pad0[0x14];
+    f32 height; /* 0x14 */
+    u8 pad18[4];
+    f32 space; /* 0x1c */
+    u8 pad20[4];
+    f32 gap; /* 0x24 */
+    u8 pad28[4];
+    f32* xscale; /* 0x2c */
+    f32* yscale; /* 0x30 */
+    struct nustream_glyph_s* glyphs; /* 0x34 */
+    struct nustream_font_s* font; /* 0x38 */
+    u8 pad3c[4];
+    s32 mtl; /* 0x40 */
+    s32* colour; /* 0x44 */
+    struct nustream_xf_s* xf; /* 0x48 */
+};
+
+extern f32 lbl_8040ADA0;
+extern f32 lbl_8040ADA4;
+extern f32 lbl_8040ADA8;
+extern f32 lbl_80407CC4;
+extern void NuRndrTriStrip3dClip(struct nustream_vtx_s* v, s32 n, struct nustream_mtx_s* m, s32 mtl);
+extern void fn_800374C8(s32 prim, s32 fmt, s32 mtl);
+extern void fn_8003777C(f32 u, f32 v);
+extern void fn_80037788(s32 colour);
+extern void fn_800377AC(f32 x, f32 y, f32 z);
+extern void fn_80037864(void);
+
+/* NONMATCHING 122/232: retail keeps mode != 0 in cr4 and reloads 16.0f; see work/fn_8002C644/status.md. */
+void fn_8002C644(struct nustream_text_s* o, u16* str, s32 mode)
+{
+    struct nustream_vtx_s vtx[4];
+    struct nustream_glyph_s* g;
+    f32 h;
+    f32 w;
+    f32 dw;
+    f32 x;
+    f32 y;
+    f32 x0, x1, y0, y1;
+    f32 u0, u1, v0, v1;
+    s32 col;
+    u32 c;
+
+    lbl_8040ADA4 = o->xf->pos[0];
+    lbl_8040ADA0 = o->xf->pos[1];
+    lbl_8040ADA8 = o->xf->pos[2];
+    h = o->height * *o->yscale;
+    for (;;) {
+        c = *str;
+        if (c == 0) {
+            return;
+        }
+        g = &o->glyphs[c];
+        y = lbl_8040ADA0;
+        str++;
+        y0 = y * 16.0f;
+        if (c == ' ') {
+            if (lbl_80407CC4 != 0.0f) {
+                w = lbl_80407CC4 * *o->xscale;
+            } else {
+                w = *o->xscale * o->space;
+            }
+        } else {
+            w = g->w * *o->xscale;
+        }
+        y1 = (y + h) * 16.0f;
+        u0 = g->u;
+        v0 = g->v;
+        u1 = g->u + g->w;
+        v1 = g->v + o->height;
+        if (mode != 0 && c > 0x2F && c <= 0x39) {
+            dw = o->glyphs[o->font->digit].w * *o->xscale;
+            x = lbl_8040ADA4 + (dw - w);
+            x1 = (x + w) * 16.0f;
+            w = dw;
+            x0 = x * 16.0f;
+        } else {
+            x1 = (lbl_8040ADA4 + w) * 16.0f;
+            x0 = lbl_8040ADA4 * 16.0f;
+        }
+        if (c != ' ') {
+            col = *o->colour;
+            x0 = x0 * 0.0625f;
+            x1 = x1 * 0.0625f;
+            y0 = y0 * 0.0625f * 0.5f;
+            y1 = y1 * 0.0625f * 0.5f;
+            u0 = u0 * 0.001953125f;
+            v0 = v0 * 0.001953125f;
+            u1 = u1 * 0.001953125f;
+            v1 = v1 * 0.001953125f;
+            if (mode == 2) {
+                vtx[0].x = x0;
+                vtx[0].y = y0;
+                vtx[0].z = lbl_8040ADA8;
+                vtx[0].colour = col;
+                vtx[0].u = u0;
+                vtx[0].v = v1;
+                vtx[1].x = x0;
+                vtx[1].y = y1;
+                vtx[1].z = lbl_8040ADA8;
+                vtx[1].colour = col;
+                vtx[1].u = u0;
+                vtx[1].v = v0;
+                vtx[2].x = x1;
+                vtx[2].y = y0;
+                vtx[2].z = lbl_8040ADA8;
+                vtx[2].colour = col;
+                vtx[2].u = u1;
+                vtx[2].v = v1;
+                vtx[3].x = x1;
+                vtx[3].y = y1;
+                vtx[3].z = lbl_8040ADA8;
+                vtx[3].colour = col;
+                vtx[3].u = u1;
+                vtx[3].v = v0;
+                NuRndrTriStrip3dClip(vtx, 4, &o->xf->mtx, o->mtl);
+            } else {
+                fn_800374C8(4, 7, o->mtl);
+                fn_8003777C(u0, v0);
+                fn_80037788(col);
+                fn_800377AC(x0, y0, 0.0f);
+                fn_8003777C(u1, v0);
+                fn_80037788(col);
+                fn_800377AC(x1, y0, 0.0f);
+                fn_8003777C(u1, v1);
+                fn_80037788(col);
+                fn_800377AC(x1, y1, 0.0f);
+                fn_8003777C(u0, v1);
+                fn_80037788(col);
+                fn_800377AC(x0, y1, 0.0f);
+                fn_80037864();
+            }
+        }
+        lbl_8040ADA4 += o->gap * *o->xscale + w;
+    }
+}
+
 
 struct nustream_obj_s {
     u8 pad0[0x18];
@@ -106,17 +265,17 @@ void fn_8002CD00(struct nustream_obj_s* a, s32 c)
 
 void fn_8002CDA8(s32 a, s32 b)
 {
-    fn_8002C644(a, b, 0);
+    fn_8002C644((struct nustream_text_s*)a, (u16*)b, 0);
 }
 
 void fn_8002CDCC(s32 a, s32 b)
 {
-    fn_8002C644(a, b, 2);
+    fn_8002C644((struct nustream_text_s*)a, (u16*)b, 2);
 }
 
 void fn_8002CB60(s32 a, s32 b, s32 c, s32 d)
 {
-    fn_8002C644(b, c, d);
+    fn_8002C644((struct nustream_text_s*)b, (u16*)c, d);
 }
 
 void fn_8002CD7C(u8* a, s32 b)
