@@ -20,7 +20,7 @@
 # reports that the plan needs revision, or when evidence changes the order. Parking a function
 # needs a reason that names its best score and the next hypothesis.
 
-revision = 9
+revision = 10
 # The `# at revision N` comments record each item's size when the plan was written; they are
 # not read by tools.
 
@@ -191,6 +191,34 @@ reason = "Best 81/93 (nugscn, candidate in source), up from 80/93 through shared
 
 
 [[parked]]
+function = "fn_8002C644"
+reason = "Best 122/232 (nustream, NONMATCHING candidate in source), up from the archived 107/232. A for(;;) loop that exits with return (not break/while) stops GCC's loop rotation and hoists the constants like retail. Remaining: retail keeps mode != 0 in cr4 (mr. r27,r5 / mcrf), recompares c == ' ' where mine reuses cr7, reloads 16.0f into f9 inside the loop, and FPR numbering differs. variant_search (6.5k variants), digit-first/local-flag/c-0x30<10/re-read-space variants and a 180 s permuter burst (best: hoisted z local, 86/232 strict) found nothing better. Next: give mode a lifetime that spans the calls (e.g. a copy used after the draw calls) so GCC keeps the test in a CR field; split the y*16 terms so one 16.0f load sits inside the loop."
+
+[[parked]]
+function = "fn_80012C44"
+reason = "Best 45/47 (nuspecial, candidate in source, unchanged). Retail forms add r9,r11,r9; stbu r0,8(r9) where mine emits addi + stb; constant registers r6=4, r7=0, r0=-0x7c already match. All six store orders, direct writes, a local attr pointer, a u8 pre-increment pointer and (++a)-> forms reached at most 43/47; variant_search and a permuter burst gave no real gain. Next: an inline NuVtxStateAttrInit taking the attr base by value so flow.c forms the pre-increment store."
+
+[[parked]]
+function = "NuSpecialFind"
+reason = "Best 100/101 (nuspecial, candidate in source, unchanged). Retail emits both not-found tails as separate stores at 8,0,4; source order 0,4,8 schedules to 8,0,4 but cross-jumping then merges the two tails (87 insns). All 36 display/legacy order pairs, a chained assignment, a zero local, goto and do-while were tried; permuter base 115 best 110 (pad variable) is not a strict gain. Next: make the two tails differ before scheduling (different return expression or a volatile-free side effect that GCC still deletes late)."
+
+[[parked]]
+function = "NuAnimCurveCalcVal2"
+reason = "Best 85/105 (nuanim, PR 166, 29 distinct candidates); first 79 instructions match. Next: compare Hermite value/time live ranges and FMA scheduling."
+
+[[parked]]
+function = "NuAnimCurve2CalcVal"
+reason = "Best 340/449 (nuanim, PR 166, 54 distinct candidates). Extra f31 save gives a 0x30 rather than 0x28 frame; diagnostic tails merge. Next: isolate polynomial temporaries from the shared return lifetime."
+
+[[parked]]
+function = "NuAnimCurve2SetApplyBlendToJoint2TransLoc"
+reason = "Best 441/605 (nuanim, PR 166, 579 distinct candidates), correct 0x130 frame. A speculative volatile inverse reached 449/605 and was rejected. Next: compare indexed second-output addressing and result/next-type load lifetime before saved-register tuning."
+
+[[parked]]
+function = "NuAnimCurve2SetApplyToJointTransLoc"
+reason = "Best 350/430 (nuanim, PR 166, 107 distinct candidates), correct 0xA0 frame and 430 instructions. Flags/joint saved registers differ. Next: recover the next-type load across the previous result store and the zero-store order."
+
+[[parked]]
 function = "fn_80023628"
 reason = "Strict VERIFIED and its .rodata pool now matches; objdiff stays at 99.96% only because the farclip read relocates as lbl_80313268+0x4c where the retail split names the same address lbl_803132B4 (struct nucam_s spans the 0x20-byte lbl_80313268 symbol). The linked address is identical. Next: settle the .bss symbol boundary at 0x80313268 with runtime or caller evidence, never by faking a separate extern."
 
@@ -213,7 +241,7 @@ note = "Pass 2 (2026-11-13) adds three strict VERIFIED functions / 3,908 B: NuAn
 [[stage.item]]
 id = "nurndr-nugscn"
 units = ["auto/nu3d/ngc/nurndr", "auto/nu3d/ngc/nugscn", "auto/nu3d/ngc/nustream", "auto/nu3d/nuspecial"]
-note = "nugscn follow-up: fn_80028444 VERIFIED (624 B), two measured plateaus below. Remaining units: nurndr (fn_80024F68, fn_80026710, fn_80026F0C), nustream (fn_8002C644), nuspecial (fn_80012C44, NuSpecialFind); next pass owns one unit per PR."
+note = "nugscn follow-up: fn_80028444 VERIFIED (624 B), two measured plateaus below. Revision 10 pass (2026-11-25, no subagents): nustream fn_8002C644 gained a source candidate (107 to 122/232) and both nuspecial functions were re-climbed without gain; all three are parked below. Remaining unattempted: nurndr (fn_80024F68 222/270, fn_80026F0C 206/229, fn_80026710 with no source); the next pass owns nurndr alone."
 # at revision 1: 32 functions, 18,980 bytes left
 
 [[stage.item]]

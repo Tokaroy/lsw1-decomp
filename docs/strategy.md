@@ -84,8 +84,9 @@ Large units are sliced into items of about 20 KB so one child can finish one. It
 overlap only where a hub function also belongs to its unit's item.
 
 The revision 9 `nurndr-nugscn` follow-up verifies the 624-byte texture-animation
-loader and records two measured `nugscn` plateaus. Its six unfinished functions in
-`nurndr`, `nustream` and `nuspecial` remain in the item; the stage order is unchanged.
+loader and records two measured `nugscn` plateaus. Revision 10 parks the `nustream`
+and `nuspecial` plateaus; the three `nurndr` functions remain in the item, and the
+stage order is unchanged.
 
 ## How an item is worked
 
@@ -201,6 +202,12 @@ and unit-wide section/relocation/range checks. The stale scaffold note is replac
 with the current result. The zero-yield `nuanim` bench warning was reviewed; this
 pass supplies no evidence to reorder stages or reclassify its unfinished work.
 Stage 2 keeps its existing order, continuing at the next unclaimed item.
+
+Revision 10 (2026-11-25) records a single-thread `nurndr-nugscn` pass. `nustream`'s
+fn_8002C644 gains a NonMatching source candidate (122/232, up from 107) and is parked;
+the two `nuspecial` plateaus are re-climbed without gain and parked. The `nuanim` item's
+four PR 166 plateaus move into `[[parked]]` with their best scores and next hypotheses.
+The three `nurndr` functions stay in the item for the next pass; stage order is unchanged.
 
 ## Rules that do not change
 
