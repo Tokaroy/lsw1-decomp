@@ -5127,3 +5127,84 @@ actions_done:
         }
     }
 }
+
+struct airtcnx_s *fn_8008B79C(struct airtpacket_s *packet, s32 *direction)
+{
+    struct airtcnx_s *cnx = 0;
+    s32 exitNode = 0;
+
+    struct airtnode_s *goal = packet->goal;
+
+    if (goal) {
+        struct airtpath_s *path = packet->path;
+        struct airtnode_s *nodes = path->nodes;
+        s32 start = packet->cnx->nodes[packet->direction == 0];
+        s32 dest = goal - nodes;
+        s32 index = ((struct aidnpath_s *)path)->matrix[start][dest];
+        struct airtnode_s *node = &nodes[start];
+        s32 routeIndex;
+
+        if (index < node->count) {
+            cnx = node->connections[index];
+            if (cnx->nodes[0] == start) {
+                *direction = 0;
+            } else {
+                *direction = 1;
+            }
+        }
+        routeIndex = packet->route;
+        if (routeIndex != 0xff) {
+            struct aidnroute_s *route;
+            struct airtnode_s *destNode;
+            s32 reverse;
+
+            if (!((s32)((u64)node->membership >> routeIndex) & 1)) {
+                goto no_connection;
+            }
+            if ((s32)((u64)node->boundary >> routeIndex) & 1) {
+                if (!cnx || !((s32)((u64)cnx->routemask >> routeIndex) & 1)) {
+                    goto done;
+                }
+            }
+            route = &((struct aidnpath_s *)packet->path)->routes[routeIndex];
+            destNode = &packet->path->nodes[dest];
+            cnx = 0;
+            if ((s32)((u64)destNode->membership >> routeIndex) & 1) {
+                index = route->routenodes[route->noderoutes[start]][route->noderoutes[dest]];
+            } else {
+                f32 nearest = 3.4028235e38f;
+                s32 i;
+
+                for (i = 0; i < route->exitcount; i++) {
+                    f32 first = fn_8008A370(packet->path, start, route->exitnodes[i], packet->route, 0);
+                    f32 distance = first + fn_8008A370(packet->path, route->exitnodes[i], dest, 0xff,
+                                                    (u32)((u64)1 << packet->route));
+
+                    if (distance < nearest) {
+                        nearest = distance;
+                        exitNode = route->exitnodes[i];
+                    }
+                }
+                if (nearest == 3.4028235e38f) {
+no_connection:
+                    return 0;
+                }
+                index = route->routenodes[route->noderoutes[start]][route->noderoutes[exitNode]];
+            }
+            if (index < node->count) {
+                cnx = node->connections[index];
+                if (cnx->nodes[0] == start) {
+                    /* Reuse the exit-node temporary after the route lookup. */
+                    exitNode = 0;
+                    reverse = exitNode;
+                } else {
+                    reverse = 1;
+                }
+                *direction = reverse;
+            }
+        }
+done:
+        return cnx;
+    }
+    goto no_connection;
+}
