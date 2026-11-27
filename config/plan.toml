@@ -2432,3 +2432,7 @@ reason = "best 74/117: fwd/back callee-saved regs swapped, hoisted pb[0] load ge
 [[parked]]
 function = "AIScriptLoadScp"
 reason = "best 193/194: addi r28,r29,0x10 (states=&sc->states) scheduled before bl NuFParPushCom instead of after; goto loop + store order CB8,CBC,CC0,CD0 fixed the rest; next: permuter burst on placement of states/PushCom"
+
+[[parked]]
+function = "fn_80072028"
+reason = "best 212/250: preamble reg alloc + mr r10,r9 copy of lbl_8040AE5C + addi form of lbl_80348074.y in nested check; next: permuter burst or different local/pointer shape"
