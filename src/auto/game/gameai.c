@@ -1,4 +1,4 @@
-#include "types.h"
+#include "game/ai.h"
 
 struct fn_8012CD28_s {
     s32 x;
@@ -481,7 +481,6 @@ s32 fn_8012A2EC(u8 *c) {
 void AIScriptProcessorInit(void *, void *, void *, s32, char *, s32, s32, void *, void *);
 s32 AISysSetLevelPath(void *, char *);
 void ResetAICreatures(void *);
-s32 fn_80083754(void *, char *, s32, s32, s32);
 void fn_800A4C78(void *);
 int sprintf(char *, const char *, ...);
 extern char str_Format_LevelNum[];

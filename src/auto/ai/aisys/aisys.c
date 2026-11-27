@@ -4650,6 +4650,38 @@ struct aisys_rr_sys_s {
     u8 scripts[8];
 };
 
+struct aisys_rr_script_s *fn_80083754(struct aisys_rr_sys_s *sys, char *name,
+                                      s32 useDefault, s32 searchLocal, s32 searchGlobal)
+{
+    struct aisys_rr_script_s *script;
+
+    if (name != 0) {
+        if (searchLocal != 0 && sys != 0) {
+            for (script = fn_800076C4(&sys->scripts); script != 0; script = fn_800076CC(&sys->scripts, script)) {
+                if (NuStrICmp(name, script->name) == 0) {
+                    return script;
+                }
+            }
+        }
+        if (searchGlobal != 0) {
+            for (script = fn_800076C4(&lbl_8040AF30); script != 0; script = fn_800076CC(&lbl_8040AF30, script)) {
+                if (NuStrICmp(name, script->name) == 0) {
+                    return script;
+                }
+            }
+        }
+    }
+    if (useDefault == 0) {
+        return 0;
+    }
+    for (script = fn_800076C4(&lbl_8040AF30); script != 0; script = fn_800076CC(&lbl_8040AF30, script)) {
+        if (NuStrICmp(str_ScriptToken_Default, script->name) == 0) {
+            return script;
+        }
+    }
+    return 0;
+}
+
 static inline struct aisys_rr_script_s *aisys_rr_find_script(struct aisys_rr_sys_s *sys, char *name, u32 searchLocal, u32 searchGlobal)
 {
     struct aisys_rr_script_s *s;

@@ -27,4 +27,10 @@ struct NUAISCRIPTPROCESS_s {
     f32 timer;
 };
 
+struct aisys_rr_script_s;
+struct aisys_rr_sys_s;
+
+struct aisys_rr_script_s *fn_80083754(struct aisys_rr_sys_s *sys, char *name,
+                                      s32 useDefault, s32 searchLocal, s32 searchGlobal);
+
 #endif
