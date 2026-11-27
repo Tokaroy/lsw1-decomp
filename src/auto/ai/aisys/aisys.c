@@ -4452,3 +4452,678 @@ f32 fn_8008A370(struct airtpath_s *pathArg, s32 start, s32 dest, s32 routeIndex,
     }
     return distance;
 }
+
+#include "types.h"
+
+
+struct aisys_state_s {
+    u8 pad0[0x10];
+    u8 actions[8];
+    char *name;
+};
+
+struct aisys_script_s {
+    u8 pad0[0x10];
+    u8 states[8];
+};
+
+struct aisys_proc_s {
+    u8 pad0[4];
+    struct aisys_script_s *script;
+    struct aisys_state_s *state;
+    void *action;
+    s32 unk10;
+    u8 pad14[0x28];
+    u32 flags;
+};
+
+static inline struct aisys_state_s *aisys_find_state(struct aisys_script_s *script, char *name)
+{
+    struct aisys_state_s *state;
+    for (state = (struct aisys_state_s *)fn_800076C4(&script->states); state != 0; state = (struct aisys_state_s *)fn_800076CC(&script->states, state)) {
+        if (NuStrICmp(name, state->name) == 0) {
+            return state;
+        }
+    }
+    return 0;
+}
+
+static inline void aisys_set_state(struct aisys_proc_s *proc, struct aisys_state_s *state)
+{
+    void *action;
+    if (proc != 0) {
+        proc->state = state;
+        proc->action = 0;
+        proc->unk10 = 0;
+        action = fn_800076C4(&state->actions);
+        if (action != 0) {
+            proc->action = action;
+            proc->flags |= 0x80000000;
+        } else {
+            proc->action = 0;
+        }
+    }
+}
+
+s32 fn_8007EBD0(void *procArg, void *nameArg)
+{
+    struct aisys_proc_s *proc = (struct aisys_proc_s *)procArg;
+    char *name = (char *)nameArg;
+    struct aisys_state_s *state;
+
+    if (name != 0 && proc != 0 && proc->script != 0) {
+        state = aisys_find_state(proc->script, name);
+        if (state != 0) {
+            aisys_set_state(proc, state);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+#include "types.h"
+
+
+struct aisys_cond_desc_s {
+    char *name;
+    f32 (*fn)(void *, void *, void *, void *, void *);
+};
+
+struct aisys_cond_s {
+    u8 pad0[8];
+    f32 value;
+    s8 op;
+    s8 varIdx;
+    u32 isAnd : 1;
+    u32 isVar : 1;
+    void *param0;
+    void *param1;
+    struct aisys_cond_desc_s *desc;
+};
+
+struct aisys_proc_cond_s {
+    u8 pad0[0x14];
+    f32 vars[8];
+};
+
+struct aisys_cond_s *fn_8007EFA0(void *sys, void *condList, void *unused, void *packet, struct aisys_proc_cond_s *proc, f32 time)
+{
+    struct aisys_cond_s *cond;
+    f32 val = 0.0f;
+    f32 cmpVal;
+    s32 ok;
+
+    if (proc != 0 && condList != 0) {
+        cond = (struct aisys_cond_s *)fn_800076C4(condList);
+        while (cond != 0) {
+            ok = 0;
+            if (cond->desc != 0) {
+                if (cond->desc->fn != 0) {
+                    val = cond->desc->fn(sys, proc, packet, cond->param0, cond->param1);
+                }
+                if (cond->isVar) {
+                    cmpVal = proc->vars[cond->varIdx];
+                } else {
+                    cmpVal = cond->value;
+                }
+                switch (cond->op) {
+                    case 0:
+                        if (val == cmpVal) ok = 1;
+                        break;
+                    case 1:
+                        if (val < cmpVal) ok = 1;
+                        break;
+                    case 2:
+                        if (val > cmpVal) ok = 1;
+                        break;
+                    case 3:
+                        if (val != cmpVal) ok = 1;
+                        break;
+                }
+            }
+            if (ok) {
+                if (!cond->isAnd) {
+                    return cond;
+                }
+                cond = (struct aisys_cond_s *)fn_800076CC(condList, cond);
+                continue;
+            } else {
+                while (cond != 0 && cond->isAnd) {
+                    cond = (struct aisys_cond_s *)fn_800076CC(condList, cond);
+                }
+                if (cond == 0) {
+                    break;
+                }
+            }
+            cond = (struct aisys_cond_s *)fn_800076CC(condList, cond);
+        }
+    }
+    return 0;
+}
+
+#include "types.h"
+
+extern void fn_80007680(void *, void *);
+
+struct aisys_rr_cond_desc_s {
+    char *name;
+    void *fn;
+    void *(*resolve)(void *, void *);
+};
+
+struct aisys_rr_cond_s {
+    u8 pad0[0x10];
+    void *param0;
+    void *param1;
+    struct aisys_rr_cond_desc_s *desc;
+};
+
+struct aisys_rr_override_s {
+    u8 pad0[8];
+    char *scriptName;
+    void *script;
+    char *returnStateName;
+    void *returnState;
+    u32 searchGlobal : 1;
+    u32 searchLocal : 1;
+    u32 pad18 : 30;
+    u8 condList[8];
+};
+
+struct aisys_rr_state_s {
+    u8 pad0[0x18];
+    char *name;
+    u8 overrides[8];
+};
+
+struct aisys_rr_script_s {
+    u8 pad0[8];
+    char *name;
+    u8 padC[4];
+    u8 states[8];
+    u8 pad18[0x28];
+    u8 overrides[8];
+};
+
+struct aisys_rr_sys_s {
+    u8 pad0[0x18];
+    u8 scripts[8];
+};
+
+static inline struct aisys_rr_script_s *aisys_rr_find_script(struct aisys_rr_sys_s *sys, char *name, u32 searchLocal, u32 searchGlobal)
+{
+    struct aisys_rr_script_s *s;
+    if (name != 0) {
+        if (searchLocal != 0 && sys != 0) {
+            for (s = (struct aisys_rr_script_s *)fn_800076C4(&sys->scripts); s != 0; s = (struct aisys_rr_script_s *)fn_800076CC(&sys->scripts, s)) {
+                if (NuStrICmp(name, s->name) == 0) {
+                    return s;
+                }
+            }
+        }
+        if (searchGlobal != 0) {
+            for (s = (struct aisys_rr_script_s *)fn_800076C4(&lbl_8040AF30); s != 0; s = (struct aisys_rr_script_s *)fn_800076CC(&lbl_8040AF30, s)) {
+                if (NuStrICmp(name, s->name) == 0) {
+                    return s;
+                }
+            }
+        }
+    }
+    for (s = (struct aisys_rr_script_s *)fn_800076C4(&lbl_8040AF30); s != 0; s = (struct aisys_rr_script_s *)fn_800076CC(&lbl_8040AF30, s)) {
+        if (NuStrICmp(str_ScriptToken_Default, s->name) == 0) {
+            return s;
+        }
+    }
+    return 0;
+}
+
+static inline struct aisys_rr_state_s *aisys_rr_find_state(void *stateList, char *name)
+{
+    struct aisys_rr_state_s *st = (struct aisys_rr_state_s *)fn_800076C4(stateList);
+    if (!name) {
+        return 0;
+    }
+    for (; st != 0; st = (struct aisys_rr_state_s *)fn_800076CC(stateList, st)) {
+        if (NuStrICmp(name, st->name) == 0) {
+            return st;
+        }
+    }
+    return 0;
+}
+
+void AIScriptResolveReferences(struct aisys_rr_sys_s *sys, struct aisys_rr_script_s *script)
+{
+    struct aisys_rr_override_s *ov;
+    struct aisys_rr_override_s *nextOv;
+    struct aisys_rr_state_s *state;
+    struct aisys_rr_cond_s *cond;
+
+    if (sys != 0 && script != 0) {
+        for (ov = (struct aisys_rr_override_s *)fn_800076C4(&script->overrides); ov != 0; ov = nextOv) {
+            nextOv = (struct aisys_rr_override_s *)fn_800076CC(&script->overrides, ov);
+            ov->script = aisys_rr_find_script(sys, ov->scriptName, ov->searchLocal, ov->searchGlobal);
+            if (ov->script == 0 || ov->script == script) {
+                fn_80007680(&script->overrides, ov);
+            } else {
+                ov->returnState = aisys_rr_find_state(&script->states, ov->returnStateName);
+                for (cond = (struct aisys_rr_cond_s *)fn_800076C4(&ov->condList); cond != 0; cond = (struct aisys_rr_cond_s *)fn_800076CC(&ov->condList, cond)) {
+                    if (cond->desc->resolve != 0) {
+                        cond->param1 = cond->desc->resolve(sys, cond->param0);
+                    }
+                }
+            }
+        }
+        for (state = (struct aisys_rr_state_s *)fn_800076C4(&script->states); state != 0; state = (struct aisys_rr_state_s *)fn_800076CC(&script->states, state)) {
+            for (ov = (struct aisys_rr_override_s *)fn_800076C4(&state->overrides); ov != 0; ov = nextOv) {
+                nextOv = (struct aisys_rr_override_s *)fn_800076CC(&state->overrides, ov);
+                ov->script = aisys_rr_find_script(sys, ov->scriptName, ov->searchLocal, ov->searchGlobal);
+                if (ov->script == 0 || ov->script == script) {
+                    fn_80007680(&script->overrides, ov);
+                }
+                ov->returnState = aisys_rr_find_state(&script->states, ov->returnStateName);
+                for (cond = (struct aisys_rr_cond_s *)fn_800076C4(&ov->condList); cond != 0; cond = (struct aisys_rr_cond_s *)fn_800076CC(&ov->condList, cond)) {
+                    if (cond->desc->resolve != 0) {
+                        cond->param1 = cond->desc->resolve(sys, cond->param0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#include "types.h"
+
+extern char str_ScriptState_Base_2[];
+
+struct aisys_init_state_s {
+    u8 pad0[0x10];
+    u8 actions[8];
+    char *name;
+};
+
+struct aisys_init_var_s {
+    f32 value;
+    u32 pad4;
+};
+
+struct aisys_init_script_s {
+    u8 pad0[8];
+    char *name;
+    u8 padC[4];
+    u8 states[8];
+    u8 pad18[4];
+    struct aisys_init_var_s vars[4];
+};
+
+struct aisys_init_sys_s {
+    u8 pad0[0x18];
+    u8 scripts[8];
+};
+
+struct aisys_init_override_s {
+    u8 pad0[0x58];
+    s32 varMask;
+    u8 pad5C[0x10];
+    f32 vars[4];
+};
+
+struct aisys_init_proc_s {
+    struct aisys_init_script_s *rootScript;
+    struct aisys_init_script_s *script;
+    struct aisys_init_state_s *state;
+    void *action;
+    s32 unk10;
+    f32 vars[4];
+    u8 pad24[0x18];
+    u32 flags;
+    u8 pad40[4];
+    u8 unk44;
+    u8 unk45;
+    u8 pad46[2];
+    f32 unk48;
+    s32 unk4C;
+};
+
+static inline struct aisys_init_script_s *aisys_find_script_init(struct aisys_init_sys_s *sys, char *name, s32 useDefault)
+{
+    struct aisys_init_script_s *script;
+    if (name != 0) {
+        if (sys != 0) {
+            for (script = (struct aisys_init_script_s *)fn_800076C4(&sys->scripts); script != 0; script = (struct aisys_init_script_s *)fn_800076CC(&sys->scripts, script)) {
+                if (NuStrICmp(name, script->name) == 0) {
+                    return script;
+                }
+            }
+        }
+        for (script = (struct aisys_init_script_s *)fn_800076C4(&lbl_8040AF30); script != 0; script = (struct aisys_init_script_s *)fn_800076CC(&lbl_8040AF30, script)) {
+            if (NuStrICmp(name, script->name) == 0) {
+                return script;
+            }
+        }
+    }
+    if (!useDefault) {
+        return 0;
+    }
+    for (script = (struct aisys_init_script_s *)fn_800076C4(&lbl_8040AF30); script != 0; script = (struct aisys_init_script_s *)fn_800076CC(&lbl_8040AF30, script)) {
+        if (NuStrICmp(str_ScriptToken_Default, script->name) == 0) {
+            return script;
+        }
+    }
+    return 0;
+}
+
+static inline struct aisys_init_state_s *aisys_find_state_init(struct aisys_init_script_s *script, char *name)
+{
+    struct aisys_init_state_s *state;
+    for (state = (struct aisys_init_state_s *)fn_800076C4(&script->states); state != 0; state = (struct aisys_init_state_s *)fn_800076CC(&script->states, state)) {
+        if (NuStrICmp(name, state->name) == 0) {
+            return state;
+        }
+    }
+    return 0;
+}
+
+static inline void aisys_set_state_init(struct aisys_init_proc_s *proc, struct aisys_init_state_s *state)
+{
+    void *action;
+    if (proc != 0 && state != 0) {
+        proc->state = state;
+        proc->action = 0;
+        proc->unk10 = 0;
+        action = fn_800076C4(&state->actions);
+        if (action != 0) {
+            proc->action = action;
+            proc->flags |= 0x80000000;
+        } else {
+            proc->action = 0;
+        }
+    }
+}
+
+void AIScriptProcessorInit(struct aisys_init_sys_s *sys, void *packet, struct aisys_init_proc_s *proc,
+    struct aisys_init_override_s *overrideData, char *scriptName, char *stateName, s32 useDefault,
+    struct aisys_init_script_s *script, struct aisys_init_state_s *state)
+{
+    s32 i;
+
+    if (proc != 0) {
+        if (script == 0) {
+            script = aisys_find_script_init(sys, scriptName, useDefault);
+        }
+        if (script != 0) {
+            proc->unk10 = 0;
+            proc->script = script;
+            if (proc->rootScript == 0) {
+                proc->rootScript = script;
+            }
+            if (overrideData != 0) {
+                for (i = 0; i < 4; i++) {
+                    proc->vars[i] = overrideData->vars[i];
+                }
+                for (i = 0; i < 4; i++) {
+                    if (!((u64)overrideData->varMask & ((u64)2 << i))) {
+                        proc->vars[i] = script->vars[i].value;
+                    }
+                }
+            } else {
+                for (i = 0; i < 4; i++) {
+                    proc->vars[i] = script->vars[i].value;
+                }
+            }
+            if (state == 0) {
+                if (stateName != 0) {
+                    state = aisys_find_state_init(script, stateName);
+                }
+            }
+            if (state != 0) {
+                aisys_set_state_init(proc, state);
+            } else {
+                fn_8007EBD0(proc, str_ScriptState_Base_2);
+            }
+        }
+        proc->unk44 = 0;
+        proc->unk45 = 0;
+        proc->unk48 = 0.0f;
+        proc->unk4C = 0;
+    }
+}
+
+#include "types.h"
+
+extern s32 fn_8007F130(void *, void *, void *, void *, f32);
+extern void (*lbl_80408D28)(void *, void *, void *);
+
+struct aisys_p_action_desc_s {
+    char *name;
+    s32 (*fn)(void *, void *, void *, void *, s32, s32, f32);
+};
+
+struct aisys_p_action_s {
+    u8 pad0[8];
+    void *params;
+    s32 paramCount;
+    struct aisys_p_action_desc_s *desc;
+};
+
+struct aisys_p_cond_s {
+    u8 pad0[0x20];
+    struct aisys_p_state_s *targetState;
+};
+
+struct aisys_p_state_s {
+    u8 pad0[8];
+    u8 conds[8];
+    u8 actions[8];
+};
+
+struct aisys_p_script_s {
+    u8 pad0[0x10];
+    u8 states[8];
+    u8 pad18[0x20];
+    struct aisys_p_state_s *baseState;
+};
+
+struct aisys_p_override_s {
+    u8 pad0[0xc];
+    struct aisys_p_script_s *subScript;
+    u8 pad10[4];
+    struct aisys_p_state_s *returnState;
+    u8 pad18[4];
+    u8 condList[8];
+};
+
+struct aisys_p_sys_s {
+    u8 pad0[0x14];
+    u8 *charTable;
+};
+
+struct aisys_p_packet_s {
+    u8 pad0[0xa6];
+    u8 charIdx;
+    u8 padA7[9];
+    u8 unkB0;
+    u8 padB1;
+    u8 unkB2;
+    u8 unkB3;
+    s32 unkB4;
+    f32 unkB8;
+    f32 unkBC;
+    u8 padC0[0x70];
+    s32 unk130;
+    f32 unk134;
+};
+
+struct aisys_p_proc_s {
+    struct aisys_p_script_s *rootScript;
+    struct aisys_p_script_s *script;
+    struct aisys_p_state_s *state;
+    struct aisys_p_action_s *action;
+    struct aisys_p_state_s *nextState;
+    u8 pad14[0x10];
+    f32 timer;
+    struct aisys_p_override_s *stack[4];
+    s32 stackDepth;
+    u32 flags;
+    f32 unk40;
+    u8 unk44;
+    u8 pad45[3];
+    f32 interruptTimer;
+    struct aisys_p_state_s *interruptState;
+};
+
+static inline void aisys_p_set_state(struct aisys_p_proc_s *proc, struct aisys_p_state_s *state)
+{
+    struct aisys_p_action_s *action;
+    if (proc != 0 && state != 0) {
+        proc->state = state;
+        proc->action = 0;
+        proc->nextState = 0;
+        action = (struct aisys_p_action_s *)fn_800076C4(&state->actions);
+        if (action != 0) {
+            proc->action = action;
+            proc->flags |= 0x80000000;
+        } else {
+            proc->action = 0;
+        }
+    }
+}
+
+static inline s32 aisys_p_next_action(struct aisys_p_proc_s *proc)
+{
+    struct aisys_p_action_s *action;
+    if (proc != 0) {
+        if (proc->action != 0) {
+            action = (struct aisys_p_action_s *)fn_800076CC(&proc->state->actions, proc->action);
+        } else {
+            action = (struct aisys_p_action_s *)fn_800076C4(&proc->state->actions);
+        }
+        if (action != 0) {
+            proc->action = action;
+            proc->flags |= 0x80000000;
+        } else {
+            proc->action = 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+void AIScriptProcess(void *sysArg, void *arg1, void *packetArg, void *procArg, f32 time)
+{
+    struct aisys_p_sys_s *sys = (struct aisys_p_sys_s *)sysArg;
+    struct aisys_p_packet_s *packet = (struct aisys_p_packet_s *)packetArg;
+    struct aisys_p_proc_s *proc = (struct aisys_p_proc_s *)procArg;
+    s32 i;
+    struct aisys_p_override_s *ov;
+    void *overrideData;
+    struct aisys_p_cond_s *cond;
+
+    if (proc == 0) {
+        return;
+    }
+    proc->timer += time;
+    for (i = 0; i < proc->stackDepth; i++) {
+        ov = proc->stack[i];
+        if (fn_800076C4(&ov->condList) != 0 && fn_8007EFA0(sys, &ov->condList, arg1, packet, proc, time) == 0) {
+            proc->stackDepth = i;
+            if (proc->stackDepth == 0) {
+                if (packet->charIdx == 0xff) {
+                    overrideData = 0;
+                } else {
+                    overrideData = (void *)(sys->charTable + packet->charIdx * 0xa8);
+                }
+                AIScriptProcessorInit(sys, packet, proc, overrideData, 0, 0, 0, proc->rootScript, ov->returnState);
+            } else {
+                goto pop_nested_ref;
+            }
+            break;
+        }
+    }
+after_ref_check:
+    if (proc->stackDepth != 0 && proc->nextState == 0) {
+        if (proc->script->baseState == proc->state) {
+            ov = proc->stack[proc->stackDepth - 1];
+            proc->stackDepth--;
+            if (proc->stackDepth != 0) {
+                AIScriptProcessorInit(sys, packet, proc, 0, 0, 0, 0, proc->stack[proc->stackDepth - 1]->subScript, ov->returnState);
+                if (0) {
+pop_nested_ref:
+                    AIScriptProcessorInit(sys, packet, proc, 0, 0, 0, 0, proc->stack[proc->stackDepth - 1]->subScript, ov->returnState);
+                    goto after_ref_check;
+                }
+            } else {
+                if (packet->charIdx == 0xff) {
+                    overrideData = 0;
+                } else {
+                    overrideData = (void *)(sys->charTable + packet->charIdx * 0xa8);
+                }
+                AIScriptProcessorInit(sys, packet, proc, overrideData, 0, 0, 0, proc->rootScript, ov->returnState);
+            }
+        }
+    }
+    if (proc->nextState != 0) {
+        aisys_p_set_state(proc, proc->nextState);
+        proc->nextState = 0;
+    } else if (proc->state == 0) {
+        aisys_p_set_state(proc, (struct aisys_p_state_s *)fn_800076C4(&proc->script->states));
+    }
+    if (proc->state != 0) {
+action_loop:
+        {
+            struct aisys_p_action_s *action = proc->action;
+            s32 first;
+            if (action != 0) {
+                if (action->desc != 0 && action->desc->fn != 0) {
+                    if ((s32)proc->flags < 0) {
+                        proc->unk40 = 0.0f;
+                        if (packet != 0) {
+                            packet->unkB0 = 0;
+                            packet->unk130 = 0;
+                            packet->unkB2 = 0;
+                            packet->unkB3 = 0;
+                            packet->unkB8 = 0.0f;
+                            packet->unkB4 = 0;
+                            packet->unkBC = 0.0f;
+                            packet->unk134 = 0.0f;
+                            if (lbl_80408D28 != 0) {
+                                lbl_80408D28(sys, packet, proc);
+                            }
+                        }
+                        first = 1;
+                        proc->flags &= ~0x80000000;
+                    } else {
+                        first = 0;
+                    }
+                    if (action->desc->fn(sys, proc, packet, action->params, action->paramCount, first, time) == 0) {
+                        goto actions_done;
+                    }
+                } else {
+                    proc->flags &= ~0x80000000;
+                }
+                if ((s32)proc->flags < 0) {
+                    goto action_loop;
+                }
+                if (aisys_p_next_action(proc)) {
+                    goto action_loop;
+                }
+            }
+        }
+    }
+actions_done:
+    if (!fn_8007F130(sys, arg1, packet, proc, time)) {
+        f32 prevTimer = proc->interruptTimer;
+        if (prevTimer > 0.0f) {
+            proc->interruptTimer -= time;
+        }
+        if (prevTimer > 0.0f && proc->interruptTimer <= 0.0f && proc->interruptState != 0) {
+            aisys_p_set_state(proc, proc->interruptState);
+            proc->unk44 = 0;
+            proc->interruptState = 0;
+        } else if (proc->state != 0) {
+            cond = (struct aisys_p_cond_s *)fn_8007EFA0(sys, &proc->state->conds, arg1, packet, proc, time);
+            if (cond != 0) {
+                aisys_p_set_state(proc, cond->targetState);
+            }
+        }
+    }
+}
