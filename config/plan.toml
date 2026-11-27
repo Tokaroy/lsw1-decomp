@@ -2349,3 +2349,11 @@ reason = "best 17/50 (apimenu): same lbl_803D5680+0x10 fold and lbl_803D8280+0x3
 [[parked]]
 function = "fn_8008ACD8"
 reason = "hand draft 155/331 exact insns (WithinConnection, 0x52C): frame 0x88 and u64 route-mask shift match; remaining diff is callee-saved allocation (target visited=r31,cnx=r30,other=r29,hit=r27,f31=clearance; mine visited=r30/cnx=r29). next: permuter run on near/visited liveness"
+
+[[parked]]
+function = "fn_8006DA58"
+reason = "best 26/28: lhzx/sthx base,index operand order swapped (r11,r8 vs r8,r11); tried cast/pointer-hoist/char* variants; next: permuter burst"
+
+[[parked]]
+function = "fn_8006C54C"
+reason = "best 40/68: constants r22/r23 hoist order and stores reordered; next: permuter burst, try storing count before chain"
