@@ -1263,7 +1263,7 @@ s32 fn_80024F68(struct nurndr_hgobj_s *hg, struct nurndr_hgmtx_s *mtx, s32 n, s1
 
 extern s32 lbl_8021F9A4[];
 void NuAnimCurveEval(void *);
-void fn_80026710(u32 *alloc, void *arg1, s32 count, void *node, s32 arg3, s32 *total, s32 arg4, void *mtl, f32 f1, f32 f2, f32 f3, f32 f4);
+void fn_80026710(u32 *alloc, void *arg1, s32 count, void *node, f32 f1, s32 arg3, s32 *total, f32 f2, s32 arg4, void *mtl, f32 f3, f32 f4);
 
 struct nurndr_node_s {
     u16 count;
@@ -1274,8 +1274,7 @@ struct nurndr_node_s {
     u32 j;
 };
 
-/* NONMATCHING 206/229: node/cur register swap and the hoisted count load; see work/fn_80026F0C/status.md. */
-void fn_80026F0C(struct nurndr_node_s *node, void *arg1, void *mtl, s32 arg3, s32 arg4, f32 f1, f32 f2, f32 f3, f32 f4, f32 f5) {
+void fn_80026F0C(struct nurndr_node_s *node, void *arg1, f32 f1, void *mtl, s32 arg3, s32 arg4, f32 f2, f32 f3, f32 f4, f32 f5) {
     u32 *alloc;
     u8 *buf;
     u8 *desc;
@@ -1284,10 +1283,13 @@ void fn_80026F0C(struct nurndr_node_s *node, void *arg1, void *mtl, s32 arg3, s3
     u32 pad;
     s32 size;
     s32 tex;
+    struct nurndr_node_s *loopNode;
     s32 total;
     struct nurndr_node_s *next;
     struct nurndr_node_s *cur;
     u32 j;
+    u16 count;
+    u8 type;
     struct nurndr_pass_s *pass;
     s32 bit;
 
@@ -1298,7 +1300,8 @@ void fn_80026F0C(struct nurndr_node_s *node, void *arg1, void *mtl, s32 arg3, s3
             fn_80024CD4(mtl);
         }
         done = 0;
-        cur = node;
+        loopNode = node;
+        cur = loopNode;
         NuAnimCurveEval(lbl_8021F9A4);
         alloc = lbl_8040ACF0;
         i = 0;
@@ -1307,32 +1310,32 @@ void fn_80026F0C(struct nurndr_node_s *node, void *arg1, void *mtl, s32 arg3, s3
         *(f32 *)((u8 *)arg1 + 0x1c) = f1;
         total = 0;
         do {
-            next = node->next;
-            switch (node->type >> 4) {
+            type = loopNode->type;
+            count = loopNode->count;
+            next = loopNode->next;
+            switch (type >> 4) {
             case 2:
                 if (next != NULL) {
-                    fn_80026710(alloc, arg1, node->count, cur, arg3, &total, arg4, mtl, f1, f5, f2, f3);
+                    fn_80026710(alloc, arg1, count, cur, f1, arg3, &total, f5, arg4, mtl, f2, f3);
                     cur = next;
-                    node = cur;
+                    loopNode = cur;
                 }
                 break;
             case 6:
-                fn_80026710(alloc, arg1, 0x20, cur, arg3, &total, arg4, mtl, f1, f5, f2, f3);
+                fn_80026710(alloc, arg1, 0x20, cur, f1, arg3, &total, f5, arg4, mtl, f2, f3);
                 done = 1;
                 break;
             case 0:
                 if (next != NULL) {
-                    fn_80026710(alloc, arg1, 0x20, next, arg3, &total, arg4, mtl, f1, f5, f2, f3);
+                    fn_80026710(alloc, arg1, 0x20, next, f1, arg3, &total, f5, arg4, mtl, f2, f3);
                     done = 1;
                 }
-                break;
-            case 1:
-                done = 1;
                 break;
             case 3:
             case 4:
             case 5:
                 break;
+            case 1:
             case 7:
             default:
                 done = 1;
@@ -1358,21 +1361,17 @@ void fn_80026F0C(struct nurndr_node_s *node, void *arg1, void *mtl, s32 arg3, s3
             *alloc = (u32)(desc + 0x50);
             desc[0] = 1;
             *(s32 *)(desc + 4) = 0xe80;
+            *(s16 *)(desc + 0x2c) = *(s16 *)(desc + 8) =
+                *(s32 *)(desc + 0x18) = *(s32 *)(desc + 0x1c) = *(s32 *)(desc + 0x14) =
+                *(s32 *)(desc + 0x10) = *(s32 *)(desc + 0xc) = 0;
             *(s32 *)(desc + 0x30) = 0;
             *(s32 *)(desc + 0x28) = size;
-            *(s32 *)(desc + 0xc) = 0;
-            *(s32 *)(desc + 0x10) = 0;
-            *(s32 *)(desc + 0x14) = 0;
-            *(s32 *)(desc + 0x1c) = 0;
-            *(s32 *)(desc + 0x18) = 0;
-            *(s16 *)(desc + 8) = 0;
-            pass = *(struct nurndr_pass_s **)((u8 *)mtl + 0xcc);
-            *(s16 *)(desc + 0x2c) = 0;
             *(u8 **)(desc + 0x24) = buf;
             if (*((u8 *)mtl + 0x111) == 0x97) {
                 buf[1] = 0x90;
                 *(s32 *)(desc + 4) |= 0x40000;
             }
+            pass = *(struct nurndr_pass_s **)((u8 *)mtl + 0xcc);
             pass->mtl->flags |= 0x40000000;
             bit = pass->bit;
             pass->mtl->bits[pass->mtl->sel][bit / 8] |= 1 << (bit % 8);

@@ -215,6 +215,11 @@ strict-only match. The prior zero-yield pass parked the `nustream` and `nuspecia
 plateaus, and the new match supports continuing the renderer item with
 `fn_80026F0C` and `fn_80026710`.
 
+Revision 12 (2026-11-26) verifies `fn_80026F0C` (229/229 instructions, 916 B
+added to objdiff, up from a 206/229 candidate). This result supports keeping
+`nurndr-nugscn` in place after reviewing its prior zero-yield warning.
+`fn_80026710` remains open for a separate C draft.
+
 ## Rules that do not change
 
 - The strict verifier, pinned compilers and the retail DOL are the oracle. Never weaken
