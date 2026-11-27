@@ -139,7 +139,17 @@ void fn_8006E094(void)
 }
 
 /* 0x40-byte sound table entry: `next` chains a name-hash bucket (PauseMenu_HandleEntry1). */
-struct AudioNameEntry { const char* name; u8 pad4[0xc]; s16 next; u8 pad12[2]; s16 linked; u8 rest[0x2a]; };
+struct AudioNameEntry {
+    const char *name;
+    signed int bankBit : 15;
+    unsigned int flag16 : 1;
+    unsigned int : 16;
+    u8 pad8[8];
+    s16 next;
+    u8 pad12[2];
+    s16 linked;
+    u8 rest[0x2a];
+};
 extern struct AudioNameEntry lbl_803B6E04[];
 extern char lbl_8019854C[], lbl_8019857C[];
 extern void (*fn_80009970(char*, s32))();
@@ -341,8 +351,35 @@ void fn_8006DCD4(const char *name, void *pos) {
     }
 }
 
+extern f32 lbl_801986CC[];
+
+void fn_8006DD1C(const char *name, void *pos, f32 a)
+{
+    s32 id = PauseMenu_HandleEntry1(name);
+
+    if (id != -1)
+        fn_8006B328(id, pos, a, lbl_801986CC[0]);
+}
+
+extern f32 lbl_801986D0[];
+
+void fn_8006DD70(const char *name, void *pos, f32 b)
+{
+    s32 id = PauseMenu_HandleEntry1(name);
+
+    if (id != -1)
+        fn_8006B328(id, pos, lbl_801986D0[0], b);
+}
+
 void fn_8006DE5C(s32 id, void *pos) {
     fn_8006B328(id, pos, lbl_801986D4[0], lbl_801986D4[0]);
+}
+
+extern f32 lbl_801986D8[];
+
+void fn_8006DE88(s32 id, void *pos, f32 a)
+{
+    fn_8006B328(id, pos, a, lbl_801986D8[0]);
 }
 
 extern void fn_80021738(struct nuhspecial_s *, struct nugscn_s *, s32);
@@ -491,6 +528,214 @@ void fn_80068DE0(s32 index, s32 i)
 
     }
     --lbl_8039B1AC[index].unk1C;
+}
+
+extern s32 lbl_804086E0;
+
+struct AudioTrackEntry {
+    s32 id;
+    s32 fields[4];
+};
+
+void fn_8006DF1C(struct AudioTrackEntry *entry)
+{
+    s32 count;
+
+    lbl_804086E0 = 0;
+    lbl_804086DC = (s32)entry;
+    if (entry->id != 0) {
+        count = 0;
+        do {
+            entry++;
+            count++;
+        } while (entry->id != 0);
+        lbl_804086E0 = count;
+    }
+}
+
+struct AudioIndexRange {
+    s16 start;
+    s16 count;
+    u8 pad4[4];
+};
+extern struct AudioIndexRange lbl_803C3604[];
+
+s32 fn_8006E37C(s32 index)
+{
+    return lbl_803C3604[index].count;
+}
+
+extern s16 lbl_803C3924[];
+
+s32 fn_8006E394(s32 index, s32 offset)
+{
+    return lbl_803C3924[lbl_803C3604[index].start + offset];
+}
+
+void fn_8006E288(s32 value, s32 mode)
+{
+    u16 current = lbl_801BB44C[0];
+
+    *(s32 *)(lbl_801BB44C + 14) = value;
+    if ((u32)(current - 11) > 2)
+        return;
+
+    if (mode != 13)
+        lbl_801BB44C[0] = 11;
+    else
+        lbl_801BB44C[0] = mode;
+}
+
+extern s16 lbl_801BB458[];
+
+s32 fn_8006E2CC(void)
+{
+    if (lbl_801BB458[0] != 0)
+        return 1;
+    if (fn_80044C78(0) == 2 || fn_80044C78(1) == 2)
+        return 1;
+    return 0;
+}
+
+struct AudioVoice {
+    u8 pad0[0x10];
+    s32 id;
+    u8 pad14[0x40];
+};
+
+extern struct AudioVoice lbl_803AC5B8[512];
+extern s32 lbl_8038E820[8];
+extern s32 lbl_803B6DD8[8];
+extern s32 lbl_804085E4;
+
+void fn_8006B1E0(void)
+{
+    s32 i;
+
+    for (i = 511; i >= 0; i--)
+        lbl_803AC5B8[i].id = -1;
+
+    for (i = 0; i < 8; i++) {
+        lbl_8038E820[i] = 0;
+        lbl_803B6DD8[i] = 0;
+    }
+    lbl_804085E4 = 0;
+}
+
+#include "nucore/nufpar.h"
+
+struct AudioRequestEntry {
+    s32 fields[5];
+};
+struct numem_req_s;
+
+extern s32 fn_80006398(struct nufpar_s *);
+extern s32 NuWaterRender(struct nufpar_s *);
+extern void NuMemAllocFn(struct numem_req_s *);
+extern s32 NuRndrWaterRip(struct AudioRequestEntry *);
+extern void NuSoundSetRequestTable(s32, s32);
+extern void fn_80044D4C(void);
+extern struct nufpcom_s lbl_801BB42C[];
+extern struct AudioRequestEntry lbl_803D0724[];
+extern s32 lbl_804086C8;
+
+void fn_8006C65C(char *name)
+{
+    s32 *mask;
+    s32 index;
+    struct nufpar_s *parser = NuFParCreate(name);
+
+    if (parser != NULL) {
+        NuFParPushCom(parser, lbl_801BB42C);
+        while (fn_80006398(parser)) {
+            NuFParGetWord(parser);
+            if (parser->word.b[0] != 0)
+                NuWaterRender(parser);
+        }
+        NuMemAllocFn((struct numem_req_s *)parser);
+    }
+    index = lbl_804086C8;
+    lbl_803D0724[index].fields[2] = 0;
+    lbl_803D0724[index].fields[1] = 0;
+    lbl_803D0724[index].fields[0] = 0;
+    lbl_803D0724[index].fields[3] = -1;
+    NuRndrWaterRip(lbl_803D0724);
+    mask = lbl_803D45B8;
+    ((void *(*)())memset)(mask, 0, 0x64);
+    if (!lbl_804086E8)
+        NuSoundSetRequestTable((s32)mask, 0x32);
+    fn_80044D4C();
+}
+
+s32 fn_8006DEB8(s32 id)
+{
+    if (id != -1)
+        return lbl_803B6E04[id].flag16;
+    return -1;
+}
+
+extern void fn_80044B7C(s32);
+extern void fn_80044D20(void);
+extern void fn_80044D8C(void);
+extern f32 lbl_801986EC[];
+
+struct AudioStreamInit {
+    s16 values[9];
+    s8 pending[2];
+    u8 pad14[4];
+    f32 fade;
+};
+
+void fn_8006E1EC(void)
+{
+    s32 state;
+
+    if (lbl_804086E8 == 0) {
+        state = lbl_804086EC;
+        if (state == 0) {
+            fn_80044B7C(0);
+            fn_80044B7C(1);
+            {
+                struct AudioStreamInit *stream = (struct AudioStreamInit *)lbl_801BB44C;
+                stream->values[7] = state;
+                stream->values[1] = -1;
+                stream->values[3] = -1;
+                stream->values[2] = state;
+                stream->values[5] = -1;
+                stream->fade = lbl_801986EC[0];
+                stream->values[4] = state;
+                stream->values[6] = state;
+                stream->pending[0] = 0;
+                stream->pending[1] = 0;
+                stream->values[0] = state;
+            }
+        }
+    }
+    fn_80044D8C();
+    fn_80044D20();
+    fn_80044D4C();
+}
+
+void fn_8006DAC8(u16 *table, s32 id)
+{
+    s32 bank;
+    s32 bankBit;
+    s32 bit;
+    s32 index;
+    u16 *entry;
+
+    if (id < 0)
+        return;
+    bank = lbl_803B6E04[id].bankBit;
+    bankBit = bank;
+    if ((u32)bank > 799)
+        return;
+    index = bank / 16;
+    if (index > 49)
+        return;
+    bit = bankBit & 15;
+    entry = &table[index];
+    *entry &= 0xffffu - (1u << bit);
 }
 
 extern s32 lbl_8040AEDC;
