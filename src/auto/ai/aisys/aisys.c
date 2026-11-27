@@ -4890,7 +4890,6 @@ void AIScriptProcessorInit(struct aisys_init_sys_s *sys, void *packet, struct ai
 
 #include "types.h"
 
-extern s32 fn_8007F130(void *, void *, void *, void *, f32);
 extern void (*lbl_80408D28)(void *, void *, void *);
 
 struct aisys_p_action_desc_s {
@@ -4914,6 +4913,8 @@ struct aisys_p_state_s {
     u8 pad0[8];
     u8 conds[8];
     u8 actions[8];
+    u8 pad18[4];
+    u8 overrides[8];
 };
 
 struct aisys_p_script_s {
@@ -4921,6 +4922,8 @@ struct aisys_p_script_s {
     u8 states[8];
     u8 pad18[0x20];
     struct aisys_p_state_s *baseState;
+    u8 pad3C[4];
+    u8 overrides[8];
 };
 
 struct aisys_p_override_s {
@@ -4970,6 +4973,58 @@ struct aisys_p_proc_s {
     f32 interruptTimer;
     struct aisys_p_state_s *interruptState;
 };
+
+s32 fn_8007F130(void *sys, void *obj, void *packet, void *procArg, f32 time)
+{
+    struct aisys_p_proc_s *proc = procArg;
+    struct aisys_p_override_s *ov;
+    struct aisys_p_cond_s *cond;
+    struct aisys_p_state_s *state;
+
+    if (sys != 0 && proc != 0 && proc->script != 0 && proc->stackDepth < 4) {
+        ov = fn_800076C4(proc->script->overrides);
+        if (ov != 0) {
+            struct aisys_p_override_s **stack = proc->stack;
+
+            for (; ov != 0; ov = fn_800076CC(proc->script->overrides, ov)) {
+                void *conds = ov->condList;
+
+                if (fn_800076C4(conds) == 0 || fn_8007EFA0(sys, conds, obj, packet, (void *)proc, time) != 0) {
+                    cond = (void *)fn_8007EFA0(sys, ov->subScript->baseState->conds, obj, packet, (void *)proc, time);
+                    if (cond != 0 && cond->targetState != ov->subScript->baseState) {
+                        stack[proc->stackDepth++] = ov;
+                        AIScriptProcessorInit(sys, packet, (void *)proc, 0, 0, 0, 0,
+                            (void *)ov->subScript, (void *)cond->targetState);
+                        return 1;
+                    }
+                }
+            }
+        }
+
+        state = proc->state;
+        if (state != 0) {
+            ov = fn_800076C4(state->overrides);
+            if (ov != 0) {
+                struct aisys_p_override_s **stack = proc->stack;
+
+                for (; ov != 0; ov = fn_800076CC(state->overrides, ov)) {
+                    void *conds = ov->condList;
+
+                    if (fn_800076C4(conds) == 0 || fn_8007EFA0(sys, conds, obj, packet, (void *)proc, time) != 0) {
+                        cond = (void *)fn_8007EFA0(sys, ov->subScript->baseState->conds, obj, packet, (void *)proc, time);
+                        if (cond != 0 && cond->targetState != ov->subScript->baseState) {
+                            stack[proc->stackDepth++] = ov;
+                            AIScriptProcessorInit(sys, packet, (void *)proc, 0, 0, 0, 0,
+                                (void *)ov->subScript, (void *)cond->targetState);
+                            return 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 static inline void aisys_p_set_state(struct aisys_p_proc_s *proc, struct aisys_p_state_s *state)
 {

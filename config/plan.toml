@@ -20,7 +20,7 @@
 # reports that the plan needs revision, or when evidence changes the order. Parking a function
 # needs a reason that names its best score and the next hypothesis.
 
-revision = 12
+revision = 13
 # The `# at revision N` comments record each item's size when the plan was written; they are
 # not read by tools.
 
@@ -296,7 +296,7 @@ functions = [
   "Action_PathConnectionMaxLength",
   "Action_SetInterrupt",
 ]
-note = "OpenSaga leads; include/game/ai.h."
+note = "OpenSaga leads; include/game/ai.h. fn_8007F130 is verified (548 B); fn_8007E97C remains open."
 # at revision 1: 32 functions, 21,384 bytes left
 
 [[stage.item]]

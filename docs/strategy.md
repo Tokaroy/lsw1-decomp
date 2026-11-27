@@ -220,6 +220,12 @@ added to objdiff, up from a 206/229 candidate). This result supports keeping
 `nurndr-nugscn` in place after reviewing its prior zero-yield warning.
 `fn_80026710` remains open for a separate C draft.
 
+Revision 13 (2026-11-26) records an `aisys-1` look-ahead while the renderer item
+was claimed. `fn_8007F130` matches all 137 instructions (548 B), and
+`fn_8007E97C` remains with its existing claimant. The historical zero-yield
+warnings for `nuanim` and `nurndr-nugscn` were reviewed. The two verified
+renderer matches support keeping the stage order.
+
 ## Rules that do not change
 
 - The strict verifier, pinned compilers and the retail DOL are the oracle. Never weaken
