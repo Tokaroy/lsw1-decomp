@@ -220,11 +220,17 @@ added to objdiff, up from a 206/229 candidate). This result supports keeping
 `nurndr-nugscn` in place after reviewing its prior zero-yield warning.
 `fn_80026710` remains open for a separate C draft.
 
-Revision 13 (2026-11-26) records an `aisys-1` look-ahead while the renderer item
+Revision 13 (2026-11-26) parks `fn_80026710`, the final open body in
+`nurndr-nugscn`, after the typed draft reached 398/511 identical instructions.
+After reviewing the zero-yield renderer runs, the plan advances to stage 3
+(`s3-objects-ai`). The renderer draft still needs a strict match before it can
+count toward code progress.
+
+Revision 14 (2026-11-26) records an `aisys-1` look-ahead while the renderer item
 was claimed. `fn_8007F130` matches all 137 instructions (548 B), and
 `fn_8007E97C` remains with its existing claimant. The historical zero-yield
-warnings for `nuanim` and `nurndr-nugscn` were reviewed. The two verified
-renderer matches support keeping the stage order.
+warnings for `nuanim` and `nurndr-nugscn` were reviewed. The `fn_8007F130` match supports
+continuing the `aisys-1` item in stage 3.
 
 ## Rules that do not change
 
