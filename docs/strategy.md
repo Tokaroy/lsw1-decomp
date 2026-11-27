@@ -220,6 +220,12 @@ added to objdiff, up from a 206/229 candidate). This result supports keeping
 `nurndr-nugscn` in place after reviewing its prior zero-yield warning.
 `fn_80026710` remains open for a separate C draft.
 
+Revision 13 (2026-11-26) parks `fn_80026710`, the final open body in
+`nurndr-nugscn`, after the typed draft reached 398/511 identical instructions.
+After reviewing the zero-yield renderer runs, the plan advances to stage 3
+(`s3-objects-ai`). The renderer draft still needs a strict match before it can
+count toward code progress.
+
 ## Rules that do not change
 
 - The strict verifier, pinned compilers and the retail DOL are the oracle. Never weaken
