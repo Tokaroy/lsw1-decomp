@@ -188,10 +188,10 @@ void Menu_Unknown4_Close(void) {
     fn_800A20AC();
 }
 
-s32 Menu_Unknown3_BuildOptions();
+void Menu_Unknown3_BuildOptions(void *);
 
-void Menu_Unknown6_BuildOptions(void) {
-    Menu_Unknown3_BuildOptions();
+void Menu_Unknown6_BuildOptions(void *menu) {
+    Menu_Unknown3_BuildOptions(menu);
 }
 
 s32 RotDiff(s32 arg0, s32 arg1) {
@@ -3935,7 +3935,7 @@ void fn_800CE8FC(void) {
     }
 }
 
-void fn_800D6968(s32, s32, s32, f32, f32, f32, f32, f32, f32);
+void fn_800D6968(s32, f32, f32, f32, s32, f32, f32, f32, s32);
 s32 fn_800D7B64(void *, s32, f32, f32, f32);
 extern f32 lbl_801A54FC[];
 extern f32 lbl_801A5500[];
@@ -3948,7 +3948,7 @@ extern f32 lbl_80409540;
 
 s32 fn_800D95B8(void *arg0) {
     if (lbl_80408F00 == lbl_801A54FC[0]) {
-        fn_800D6968(*(s16 *)((s8 *)arg0 + 0x1074), 0xCA, 1, lbl_801A5500[0], lbl_8040953C, lbl_801A5500[0], lbl_80409540, lbl_801A5504[0], lbl_801A5504[0]);
+        fn_800D6968(*(s16 *)((s8 *)arg0 + 0x1074), lbl_801A5500[0], lbl_8040953C, lbl_801A5500[0], 0xCA, lbl_80409540, lbl_801A5504[0], lbl_801A5504[0], 1);
         fn_800D7B64(arg0, 0, lbl_801A5500[0], lbl_80409534, lbl_80409538);
     }
 }
@@ -4861,7 +4861,22 @@ s32 fn_800CFE9C(void *arg0, void *arg1, f32 farg0, f32 farg1) {
     return temp_f0 <= temp_f2;
 }
 
-typedef struct { u8 pad[0x14]; s16 id; u8 rest[0xE0 - 0x16]; } MenuFrame;
+typedef struct {
+    u8 pad0[0xA];
+    s16 selA;
+    u8 padC[2];
+    s16 minE;
+    u8 pad10[2];
+    s16 max12;
+    s16 id;
+    u8 pad16[0x94 - 0x16];
+    f32 unk94;
+    u8 pad98[4];
+    f32 unk9C;
+    u8 padA0[8];
+    f32 unkA8;
+    u8 padAC[0xE0 - 0xAC];
+} MenuFrame;
 extern s32 gRegisteredMenuDefinitions[];
 s32 fn_800B2ED4(void) {
     s16 id = ((MenuFrame *)gMenuStack)[gMenuDepth].id;
@@ -5663,10 +5678,10 @@ extern const f32 lbl_801A0120[];
 extern const f32 lbl_801A0124[];
 extern s32 lbl_803DF8DC[];
 extern s32 lbl_803DF8E4[];
-extern s32 lbl_803E029C[];
+extern u8 lbl_803E029C[];
 extern u8 lbl_803E04B8[];
 extern u8 lbl_803E04C0[];
-extern u8 lbl_80408A57[1];
+extern u8 lbl_80408A57;
 extern f32 lbl_80408A98;
 extern s32 lbl_8040AF10;
 extern s32 str_Off[];
@@ -5686,6 +5701,7 @@ struct levels_menu4_s {
 
 void Menu_Unknown4_BuildOptions(struct levels_menu4_s *arg0) {
     s32 dirty;
+    u8 *flags;
 
     if (*(s32 *)((s8 *)lbl_80409410 + 0x198) == 0x7C) {
         arg0->f94 = lbl_801A0120[0];
@@ -5696,25 +5712,26 @@ void Menu_Unknown4_BuildOptions(struct levels_menu4_s *arg0) {
     NuStrCpy(lbl_803E04F0, (void *)lbl_803DED88[0xB64 / 4]);
     NuStrCat(lbl_803E04F0, str_On);
     NuStrCat(lbl_803E04F0, lbl_803E04B8[0] != 0 ? (s32 *)lbl_803DED88[0xB48 / 4] : (s32 *)lbl_803DED88[0xB4C / 4]);
+    flags = &lbl_80408A57;
     lbl_80408A98 = arg0->f94;
-    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57[0]);
+    fn_800769B4(arg0, (s32)lbl_803E04F0, *flags);
 
     sprintf(lbl_803E04F0, str_Off, (void *)lbl_803DED88[0xD40 / 4], lbl_803E04B8[4], 10);
     lbl_80408A98 = arg0->f94;
-    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57[0]);
+    fn_800769B4(arg0, (s32)lbl_803E04F0, *flags);
 
     NuStrCpy(lbl_803E04F0, (void *)lbl_803DED88[0xB78 / 4]);
     NuStrCat(lbl_803E04F0, str_On);
     NuStrCat(lbl_803E04F0, lbl_803E04B8[5] != 0 ? (s32 *)lbl_803DED88[0xB48 / 4] : (s32 *)lbl_803DED88[0xB4C / 4]);
     lbl_80408A98 = arg0->f94;
-    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57[0]);
+    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57);
 
     if (*(s32 *)((s8 *)lbl_80409410 + 0x19C) == 0xD) {
         NuStrCpy(lbl_803E04F0, (void *)lbl_803DED88[0xD8 / 4]);
         NuStrCat(lbl_803E04F0, str_On);
         NuStrCat(lbl_803E04F0, lbl_803E04C0[0] != 0 ? (s32 *)lbl_803DED88[0xB34 / 4] : (s32 *)lbl_803DED88[0xB44 / 4]);
         lbl_80408A98 = arg0->f94;
-        fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57[0]);
+        fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57);
     }
     dirty = memcmp(lbl_803E04B8, lbl_803E029C, 0xC) != 0;
     if (arg0->hA == arg0->f90 || !dirty || lbl_8040AF10 == 0) {
@@ -5727,7 +5744,7 @@ void Menu_Unknown4_BuildOptions(struct levels_menu4_s *arg0) {
         *(s8 *)lbl_803E04F0 = 0;
     }
     lbl_80408A98 = arg0->f94;
-    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57[0]);
+    fn_800769B4(arg0, (s32)lbl_803E04F0, lbl_80408A57);
 }
 
 s32 fn_80059C44(struct nuvec_s *, struct nuvec_s *, f32, void *);
@@ -5856,5 +5873,1129 @@ void fn_800AC534(s32 arg0, s32 *arg1, s32 *arg2, s32 arg3) {
         *arg1 = -1;
         *arg2 = -1;
         break;
+    }
+}
+
+void fn_8014BD40(void);
+extern f32 lbl_801A044C[];
+extern f32 lbl_801A0450[];
+extern f32 lbl_804094A8;
+extern f32 lbl_804094D0;
+extern f32 lbl_804094D8;
+extern f32 lbl_804094DC;
+extern s16 lbl_8040B0D8;
+extern s16 lbl_8040B0DA;
+extern u8 lbl_8040B0DC;
+extern u8 lbl_8040B0DD;
+
+void Menu_Unknown12_BuildOptions(void) {
+    f32 opacity;
+
+    if (lbl_8040B0DC == 0) {
+        opacity = lbl_804094A8;
+    } else {
+        opacity = lbl_801A044C[0];
+    }
+    fn_800D6968(lbl_8040B0D8, -lbl_804094DC, lbl_804094D0, lbl_801A0450[0], 0xC9, lbl_804094D8, opacity, opacity, 1);
+    if (lbl_8040B0DD == 0) {
+        opacity = lbl_804094A8;
+    } else {
+        opacity = lbl_801A044C[0];
+    }
+    fn_800D6968(lbl_8040B0DA, lbl_804094DC, lbl_804094D0, lbl_801A0450[0], 0xC8, lbl_804094D8, opacity, opacity, 1);
+    fn_8014BD40();
+}
+
+s32 fn_800D6C50(u8, s32, f32, s32, s32, u8, s32, f32, s32, s32);
+extern f32 lbl_801A03BC[];
+extern f32 lbl_801A03C0[];
+
+void Menu_Unknown13_BuildOptions(void) {
+    f32 opacity;
+
+    if (lbl_8040B0DC == 0) {
+        opacity = lbl_804094A8;
+    } else {
+        opacity = lbl_801A03BC[0];
+    }
+    fn_800D6968(lbl_8040B0D8, -lbl_804094DC, lbl_804094D0, lbl_801A03C0[0], 0xC9, lbl_804094D8, opacity, opacity, 1);
+    if (lbl_8040B0DD == 0) {
+        opacity = lbl_804094A8;
+    } else {
+        opacity = lbl_801A03BC[0];
+    }
+    fn_800D6968(lbl_8040B0DA, lbl_804094DC, lbl_804094D0, lbl_801A03C0[0], 0xC8, lbl_804094D8, opacity, opacity, 1);
+    fn_800D6C50(lbl_8040B0DC, -1, lbl_801A03BC[0], -1, 0x2C5, lbl_8040B0DD, -1, lbl_801A03BC[0], -1, 0x2C5);
+}
+
+void fn_8006E1EC(void);
+extern f32 lbl_801A03D0[];
+extern f32 lbl_80409920;
+extern f32 lbl_8040B0E4;
+extern f32 lbl_8040B0E8;
+extern s32 str_Select[];
+
+void Menu_Unknown16_HandleSelection(void *menu) {
+    f32 triggerTimer;
+    f32 fade;
+    f32 timer;
+    f32 volume;
+    f32 previousTimer;
+    f32 progress;
+
+    volume = fn_800B9D44(lbl_803E029C);
+    previousTimer = lbl_8040B0E0;
+    if (lbl_8040B060[0] != 0) {
+        fn_8006DF68(0.0f);
+        timer = lbl_8040B0E0 + lbl_80408E9C;
+        lbl_8040B0E0 = timer;
+        switch (lbl_8040B060[0]) {
+        case 1:
+            if (previousTimer < 0.1f && timer >= 0.1f) {
+                fn_8006E1EC();
+            }
+            if (lbl_8040B0E0 >= 0.5f) {
+                lbl_8040B060[0] = 2;
+                fn_8006DCD4(str_Select, 0);
+                goto fullProgress;
+            } else {
+                progress = 2.0f * lbl_8040B0E0;
+            }
+            break;
+        case 2:
+            if (timer >= 4.0f) {
+                lbl_8040B060[0] = 3;
+                lbl_8040B0E0 = 0.0f;
+            }
+fullProgress:
+            progress = lbl_801A03D0[0];
+            break;
+        default:
+            if (lbl_8040B0E0 >= 0.6f) {
+                lbl_804093B0 = 0x7B;
+                fn_8006DF68(volume);
+            }
+            progress = 1.0f - 2.0f * lbl_8040B0E0;
+            if (progress < 0.0f) {
+                progress = 0.0f;
+            }
+            break;
+        }
+        lbl_8040B0E4 = NuSinApprox((s32) (progress * 16384.0f));
+        return;
+    }
+    if (lbl_80408F00 == -0.1f) {
+        lbl_8040B0E0 = previousTimer + lbl_80408E9C;
+    }
+    if (lbl_8040B0E8 > 0.0f) {
+        triggerTimer = lbl_8040B0E8 + lbl_80408E9C;
+        lbl_8040B0E8 = triggerTimer;
+        if (triggerTimer >= 1.1f) {
+            lbl_8040B0E4 = 0.0f;
+            lbl_8040B060[0] = 1;
+            lbl_8040B0E0 = 0.0f;
+        }
+        if (lbl_8040B0E4 > 0.0f) {
+            fade = lbl_8040B0E4 - lbl_80408E9C;
+            lbl_8040B0E4 = fade;
+            if (fade < 0.0f) {
+                lbl_8040B0E4 = 0.0f;
+            }
+        }
+    } else if ((*(s32 *)((u8 *)menu + 0x44) & 0x10) || lbl_8040B0E0 >= lbl_80409920) {
+        lbl_8040B0E8 = 0.001f;
+    }
+    fn_8006DF68(volume * lbl_8040B0E4);
+}
+
+void Menu_CleanupAndReset(void);
+s32 Menu_OpenFromRegistry(f32, s32, s32, s32, s32, s32, s32, s32, s32);
+s32 fn_80078FA4(void);
+void fn_8007AC0C(void);
+s32 fn_800A1B50(s32, s32);
+struct MenuPlayerFlags {
+    u8 pad0[0x4C];
+    u8 flags[2];
+};
+extern struct MenuPlayerFlags lbl_801DCF5C[];
+extern s32 lbl_803D9AB4[];
+extern s32 lbl_80408EA8;
+extern s32 lbl_80408F98;
+extern s32 lbl_804093CC;
+extern u8 lbl_8040B02C[];
+extern f32 str_ExitDemo[];
+extern s32 str_menuBack[];
+
+void fn_800B203C(s32 *input)
+{
+    s32 *pad;
+    s16 frameId;
+    s32 newSelection38;
+    s32 menuId;
+    s32 opened;
+    s32 newSelection34;
+    s32 input04;
+    s32 input08;
+    s32 input0C;
+    s32 input10;
+    s32 combine;
+    s32 second;
+    s32 first;
+    MenuFrame *frame;
+
+    pad = input;
+    menuId = fn_800B2ED4();
+    if (lbl_80408EA8 == 0) {
+        fn_8007AC0C();
+    }
+
+    frame = &((MenuFrame *)gMenuStack)[gMenuDepth];
+    frameId = frame->id;
+    if ((gPlayer1Pointer[0] == 0 ||
+         !(*(u32 *)(gPlayer1Pointer[0] + 0x20C) & 0x01000000) ||
+         fn_800A1B50(0, 1) == 0 || fn_80078FA4() != 0) &&
+        (gPlayerPointers[0] == NULL ||
+         !(*(u32 *)((u8 *)gPlayerPointers[0] + 0x20C) & 0x01000000) ||
+         fn_800A1B50(1, 1) == 0 || fn_80078FA4() != 0)) {
+        combine = 0;
+        if (lbl_8040912C != 0 && lbl_80408F98 != -1) {
+            pad = (s32 *)((u8 *)lbl_803D9A58 + lbl_80408F98 * 0x5C);
+        } else if (lbl_80409410 == NULL ||
+                   (menuId != -1 &&
+                    (lbl_80409410->unk198 == 0x7C ||
+                     (menuId != 0x1B && (lbl_80409410->unk1A8->flags & 0x4000) &&
+                      lbl_801DCF5C[0].flags[0] != 0 && lbl_801DCF5C[0].flags[1] != 0))) ||
+                   (menuId == 0x1A && lbl_8040B02C[0] != 0 && lbl_8040B02C[1] != 0) ||
+                   (lbl_80408FE0 != 0 && lbl_80409410->unk198 == 0x7E) ||
+                   (gPlayer1Pointer[0] != 0 &&
+                    (*(u32 *)(gPlayer1Pointer[0] + 0x20C) & 0x01000000) &&
+                    gPlayer1Pointer[1] != 0 &&
+                    (*(u32 *)(gPlayer1Pointer[1] + 0x20C) & 0x01000000))) {
+            combine = 1;
+        } else if (pad == lbl_803D9A58) {
+            if (lbl_80409410->unk1A8->flags & 0x4000) {
+                const volatile struct MenuPlayerFlags *flags = lbl_801DCF5C;
+                first = flags->flags[0];
+                second = flags->flags[1];
+            } else if (lbl_80409410->unk198 == 0x7D) {
+                const volatile u8 *flags = lbl_8040B02C;
+                first = flags[0];
+                second = flags[1];
+            } else if (gPlayer1Pointer[0] != 0 && gPlayer1Pointer[1] != 0) {
+                first = (*(const volatile u32 *)(gPlayer1Pointer[0] + 0x20C) >> 24) & 1;
+                second = (*(const volatile u32 *)(gPlayer1Pointer[1] + 0x20C) >> 24) & 1;
+            } else {
+                second = 0;
+                first = 0;
+            }
+
+            if (first == 0 && second != 0) {
+                pad = lbl_803D9AB4;
+            }
+        }
+
+        if (lbl_80409410 == NULL ||
+            (!(lbl_80408F00 > str_ExitDemo[0]) && lbl_80408EA8 == 0 &&
+             lbl_8040913C == -1 && lbl_804093B0 == -1)) {
+            if (combine != 0) {
+                input04 = lbl_803D9A58[1] | lbl_803D9A58[24];
+                input08 = lbl_803D9A58[2] | lbl_803D9A58[25];
+                input0C = lbl_803D9A58[3] | lbl_803D9A58[26];
+                input10 = lbl_803D9A58[4] | lbl_803D9A58[27];
+            } else {
+                input04 = pad[1];
+                input08 = pad[2];
+                input0C = pad[3];
+                input10 = pad[4];
+            }
+
+            second = *(s32 *)((u8 *)frame + 0x34);
+            first = *(s32 *)((u8 *)frame + 0x38);
+            opened = Menu_OpenFromRegistry(lbl_80408E9C, input04, input08, input0C, input10,
+                                           0x20, 0x10, 0x4000, 0x8000);
+            if (*(s32 *)((u8 *)frame + 0x50) == -1) {
+                newSelection34 = *(s32 *)((u8 *)frame + 0x34);
+                if (newSelection34 != -1) {
+                    newSelection38 = *(s32 *)((u8 *)frame + 0x38);
+                    if (newSelection38 != -1 && second != -1 && first != -1 &&
+                        (newSelection34 != second || newSelection38 != first) &&
+                        fn_800B2ED4() == menuId) {
+                        fn_8006DCD4(str_menuBack, 0);
+                    }
+                }
+            }
+            if (opened == 1 && lbl_8040912C != 0) {
+                Menu_CleanupAndReset();
+            }
+        }
+
+        if (frameId != -1 && lbl_804093B0 != -1) {
+            lbl_804093CC = 1;
+        }
+    }
+}
+
+extern s32 gDebugFpsDisplayEnabled;
+extern s32 gDebugLevelStreamingEnabled;
+extern s32 gDebugLiftPlayerEnabled;
+extern s32 gDebugPanelEnabled;
+extern s32 gDebugStreamingDisplayEnabled;
+extern f32 lbl_80408A84;
+extern f32 lbl_80408A94;
+extern s32 str_DebugMenu_BuyAllShopCharacters[];
+extern s32 str_DebugMenu_CollectAllCharacters[];
+extern s32 str_DebugMenu_CollectAllMinikits[];
+extern s32 str_DebugMenu_CollectAllSuperkitPieces[];
+extern s32 str_DebugMenu_CollectStoryCharacters[];
+extern s32 str_DebugMenu_Difficulty[];
+extern s32 str_DebugMenu_FpsDisplay[];
+extern s32 str_DebugMenu_FreePlay[];
+extern s32 str_DebugMenu_GameMode[];
+extern s32 str_DebugMenu_GoToDoor[];
+extern s32 str_DebugMenu_GoToLevel[];
+extern s32 str_DebugMenu_GoToScene[];
+extern s32 str_DebugMenu_LevelStreaming[];
+extern s32 str_DebugMenu_LiftPlayer[];
+extern s32 str_DebugMenu_OpenAllDoors[];
+extern s32 str_DebugMenu_OpenAllLevels[];
+extern s32 str_DebugMenu_Panel[];
+extern s32 str_DebugMenu_Restart[];
+extern s32 str_DebugMenu_Story[];
+extern s32 str_DebugMenu_StreamingDisplay[];
+extern s32 str_DebugMenu_UnlockAllCheats[];
+extern s32 str_FPS[];
+extern s32 str_Mode[];
+extern s32 str_On[];
+extern s32 str_Player[];
+
+void DebugMenu_BuildOptions(void *menu)
+{
+    s32 *modeLabel;
+    s32 *panelLabel;
+    s32 *liftLabel;
+    s32 *fpsLabel;
+    s32 *levelStreamingLabel;
+    s32 *streamingLabel;
+    s32 *optionLabel;
+    s32 option;
+    f32 menuScale;
+    s32 finalFlags;
+    s32 finalText;
+    u8 *flagsFps;
+    u8 *flagsStreaming;
+    u8 *itemFlags = &lbl_80408A57;
+
+    *(f32 *)((u8 *)menu + 0x9C) =
+        (f32)-(s32)*(s16 *)((u8 *)menu + 0xA) * lbl_80408A84 * *(f32 *)((u8 *)menu + 0x94);
+    fn_800769B4(menu, (s32) str_DebugMenu_GoToScene, *itemFlags);
+    fn_800769B4(menu, (s32) str_DebugMenu_GoToLevel, *itemFlags);
+    fn_800769B4(menu, (s32) str_DebugMenu_GoToDoor, *itemFlags);
+    fn_800769B4(menu, (s32) str_DebugMenu_Restart, *itemFlags);
+    fn_800769B4(menu, (s32) str_DebugMenu_OpenAllDoors, *itemFlags);
+
+    if (lbl_804091FC != 0) {
+        modeLabel = str_DebugMenu_FreePlay;
+    } else {
+        modeLabel = str_DebugMenu_Story;
+    }
+    sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_GameMode, modeLabel);
+    fn_800769B4(menu, (s32) lbl_803E04F0, lbl_80408A57);
+
+    if (gDebugPanelEnabled != 0) {
+        panelLabel = str_Player;
+    } else {
+        panelLabel = str_FPS;
+    }
+    sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_Panel, panelLabel);
+    fn_800769B4(menu, (s32) lbl_803E04F0, lbl_80408A57);
+
+    /* The single-iteration blocks reproduce ProDG's address and branch placement. */
+    do {
+        if (gDebugLiftPlayerEnabled != 0) {
+            liftLabel = str_FPS;
+        } else {
+            liftLabel = str_Player;
+        }
+        sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_LiftPlayer, liftLabel);
+        fn_800769B4(menu, (s32) lbl_803E04F0, lbl_80408A57);
+    } while (0);
+
+    if (gDebugFpsDisplayEnabled != 0) {
+        fpsLabel = str_FPS;
+    } else {
+        fpsLabel = str_Player;
+    }
+    sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_FpsDisplay, fpsLabel);
+    flagsFps = &lbl_80408A57;
+    fn_800769B4(menu, (s32) lbl_803E04F0, *flagsFps);
+    fn_800769B4(menu, (s32) str_DebugMenu_Difficulty, *flagsFps);
+
+    do {
+        if (gDebugLevelStreamingEnabled != 0) {
+            levelStreamingLabel = str_FPS;
+        } else {
+            levelStreamingLabel = str_Player;
+        }
+        sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_LevelStreaming, levelStreamingLabel);
+        fn_800769B4(menu, (s32) lbl_803E04F0, lbl_80408A57);
+    } while (0);
+
+    if (gDebugStreamingDisplayEnabled != 0) {
+        streamingLabel = str_FPS;
+    } else {
+        streamingLabel = str_Player;
+    }
+    sprintf(lbl_803E04F0, str_Mode, str_DebugMenu_StreamingDisplay, streamingLabel);
+    flagsStreaming = &lbl_80408A57;
+    fn_800769B4(menu, (s32) lbl_803E04F0, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_OpenAllLevels, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_CollectAllMinikits, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_CollectAllSuperkitPieces, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_CollectStoryCharacters, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_CollectAllCharacters, *flagsStreaming);
+    fn_800769B4(menu, (s32) str_DebugMenu_UnlockAllCheats, *flagsStreaming);
+
+    itemFlags = (u8 *)lbl_803DED88;
+    NuStrCpy(lbl_803E04F0, *(s32 *)(itemFlags + 0xCE4));
+    NuStrCat(lbl_803E04F0, str_On);
+    option = DebugMenu_ToggleOption2();
+    do {
+        switch (option) {
+        case 0:
+            optionLabel = *(s32 **)(itemFlags + 0xB4C);
+            NuStrCat(lbl_803E04F0, optionLabel);
+            break;
+        case 1:
+            optionLabel = *(s32 **)(itemFlags + 0xCE8);
+            NuStrCat(lbl_803E04F0, optionLabel);
+            break;
+        case 2:
+            do {
+                NuStrCat(lbl_803E04F0, *(s32 **)(itemFlags + 0xCEC));
+            } while (0);
+            break;
+        }
+    } while (0);
+
+    itemFlags = &lbl_80408A57;
+    finalText = (s32)lbl_803E04F0;
+    menuScale = *(const volatile f32 *)((u8 *)menu + 0x94);
+    finalFlags = *(const volatile u8 *)itemFlags;
+    lbl_80408A94 = menuScale;
+    fn_800769B4(menu, finalText, finalFlags);
+    fn_800769B4(menu, (s32) str_DebugMenu_BuyAllShopCharacters, *itemFlags);
+}
+
+extern s32 str_DebugMenu_DifficultyValue[];
+extern s32 str_menuMove[];
+
+void Menu_Unknown11_BuildOptions(void *menu)
+{
+    s32 difficulty = 1;
+    u8 *flags;
+
+    do {
+        sprintf(lbl_803E04F0, str_menuMove, str_DebugMenu_DifficultyValue, difficulty);
+        difficulty++;
+        flags = &lbl_80408A57;
+        fn_800769B4(menu, (s32) lbl_803E04F0, *flags);
+    } while (difficulty <= 10);
+}
+
+extern f32 lbl_801A018C[];
+extern f32 lbl_801A0190[];
+extern s32 lbl_8040AFA8;
+extern s32 lbl_804093C8;
+
+void Menu_Unknown6_HandleSelection(void *menu)
+{
+    s32 index;
+    s32 scene;
+    s32 pending;
+    s32 players;
+    s32 bothPlayers;
+    s32 player;
+
+    if (*(s32 *)((u8 *) menu + 0x68) != 0) {
+        if (*(s32 *)((u8 *) menu + 0x34) == 0) {
+            bothPlayers = 0;
+            if (gPlayer1Pointer[0] != 0 &&
+                (*(u32 *)(gPlayer1Pointer[0] + 0x20C) & 0x01000000) &&
+                gPlayer1Pointer[1] != 0 &&
+                (*(u32 *)(gPlayer1Pointer[1] + 0x20C) & 0x01000000)) {
+                bothPlayers = 1;
+            }
+            if (bothPlayers != 0) {
+                index = lbl_80408F98 * sizeof(s32);
+                players = (s32) gPlayer1Pointer;
+                player = *(s32 *)(players + index);
+                *(u32 *)(player + 0x20C) &= ~0x01000000u;
+                fn_800AB98C((void *) *(s32 *)(players + index));
+                if (lbl_8040AFA8 != 2) {
+                    fn_800B00B8((struct levels_fade_s *) MenuHeader, lbl_801A018C[0], lbl_801A0190[0]);
+                }
+                Menu_CleanupAndReset();
+            } else {
+                if (lbl_80408FE0 != 0) {
+                    if (lbl_8040AFF8 == 0) {
+                        lbl_8040AFF0 = 1;
+                        lbl_8040AFF8 = 1;
+                    }
+                    SceneSelect_HandleEntry();
+                    pending = 1;
+                    scene = 0x7C;
+                    lbl_804093B0 = scene;
+                    lbl_804090E0 = pending;
+                } else if (lbl_804093C8 == 0x15) {
+                    if (lbl_8040AFF8 == 0) {
+                        lbl_8040AFF0 = 1;
+                        lbl_8040AFF8 = 1;
+                    }
+                    SceneSelect_HandleEntry();
+                    pending = 1;
+                    scene = 0x7C;
+                    lbl_804093B0 = scene;
+                    lbl_804090E0 = pending;
+                } else {
+                    if (lbl_8040AFF8 == 0) {
+                        lbl_8040AFF0 = 1;
+                        lbl_8040AFF8 = 1;
+                    }
+                    SceneSelect_HandleEntry();
+                    pending = 1;
+                    scene = 0x7B;
+                    lbl_804093B0 = scene;
+                    lbl_804090E0 = pending;
+                }
+            }
+            *(s32 *)((u8 *) menu + 0x50) = PauseMenu_HandleEntry1(str_Confirm);
+        } else {
+            goto cancel;
+        }
+        return;
+    }
+    if (*(s32 *)((u8 *) menu + 0x6C) != 0) {
+cancel:
+        Menu_CloseCurrent();
+        *(s32 *)((u8 *) menu + 0x50) = PauseMenu_HandleEntry1(str_Cancel);
+    }
+}
+
+extern s32 gLegoOptionsMenuEnabled;
+extern s32 lbl_803DEE64[];
+extern s32 lbl_803DF89C[];
+extern s32 lbl_803DF8B8[];
+extern s32 lbl_803DFA54[];
+extern s32 str_PauseMenu_LegoOptions[];
+
+void PauseMenu_BuildOptions(void *menu)
+{
+    s32 bothPlayers;
+    s32 label;
+    s8 *labels = (s8 *) lbl_803DED88;
+    u8 *firstFlags = &lbl_80408A57;
+    u8 *flags;
+
+    fn_800769B4(menu, *(s32 *)(labels + 0xB08), *firstFlags);
+    fn_800769B4(menu, *(s32 *)(labels + 0xB20), *firstFlags);
+    flags = firstFlags;
+    if (lbl_80408FE0 == 0) {
+        fn_800769B4(menu, *(s32 *)(labels + 0xA5C), *flags);
+    }
+    bothPlayers = 0;
+    if (gPlayer1Pointer[0] != 0 &&
+        (*(u32 *)(gPlayer1Pointer[0] + 0x20C) & 0x01000000) &&
+        gPlayer1Pointer[1] != 0 &&
+        (*(u32 *)(gPlayer1Pointer[1] + 0x20C) & 0x01000000)) {
+        bothPlayers = 1;
+    }
+    if (bothPlayers != 0) {
+        label = lbl_803DFA54[0];
+    } else if (lbl_804093C8 == 0x15) {
+        label = lbl_803DF8B8[0];
+    } else if (lbl_80408FE0 != 0) {
+        label = lbl_803DF89C[0];
+    } else {
+        label = lbl_803DEE64[0];
+    }
+    fn_800769B4(menu, label, lbl_80408A57);
+    if (gLegoOptionsMenuEnabled != 0 && lbl_80408FE0 == 0) {
+        fn_800769B4(menu, (s32) str_PauseMenu_LegoOptions, *flags);
+    }
+}
+
+void Player_UpdateState(s32, s32);
+
+void PauseMenu_HandleSelection(void *menu)
+{
+    s32 destination;
+    s32 option;
+    s32 selection;
+    s32 idx;
+    s32 remaining;
+    s32 bothPlayers;
+    s32 nextIndex;
+    s32 *players;
+    s32 mode;
+    s32 confirm;
+    s32 player;
+
+    if (*(s32 *)((u8 *) menu + 0x68) != 0) {
+        confirm = PauseMenu_HandleEntry1(str_Confirm);
+        selection = *(s32 *)((u8 *) menu + 0x34);
+        *(s32 *)((u8 *) menu + 0x50) = confirm;
+        if (selection == 0) {
+            Menu_CleanupAndReset();
+            return;
+        }
+        nextIndex = 2;
+        if (selection == 1) {
+            destination = 4;
+            option = -1;
+            goto openMenu;
+        }
+        if ((mode = lbl_80408FE0) == 0) {
+            nextIndex = 3;
+            if (selection == 2) {
+                destination = 5;
+                option = -1;
+                goto openMenu;
+            }
+        }
+        idx = *(s32 *)((u8 *) menu + 0x34);
+        if (idx == nextIndex++) {
+            bothPlayers = 0;
+            if (gPlayer1Pointer[0] != 0 &&
+                (*(u32 *)(gPlayer1Pointer[0] + 0x20C) & 0x01000000) &&
+                gPlayer1Pointer[1] != 0 &&
+                (*(u32 *)(gPlayer1Pointer[1] + 0x20C) & 0x01000000)) {
+                bothPlayers = 1;
+            }
+            if (bothPlayers != 0) {
+                Player_UpdateState(lbl_80408F98, 1);
+                remaining = 8;
+                players = gPlayer1Pointer;
+                do {
+                    player = *players;
+                    players += 1;
+                    if (player != 0) {
+                        *(u32 *)(player + 0xF28) &= ~0x20u;
+                    }
+                    remaining -= 1;
+                } while (remaining != 0);
+                return;
+            }
+            destination = 6;
+            option = 1;
+openMenu:
+            Menu_Open(destination, option, -1);
+            return;
+        }
+        if (gLegoOptionsMenuEnabled != 0 && lbl_80408FE0 == 0 && idx == nextIndex) {
+            Menu_Open(7, -1, -1);
+        }
+    }
+}
+
+void Menu_Unknown9_HandleSelection(void *menu)
+{
+    u8 *state = (u8 *) menu;
+    u8 *table = (u8 *) lbl_801DC074;
+    u8 *entry;
+    u8 *selectedEntry;
+    u8 count;
+    u16 origin;
+    u32 adjusted;
+    u32 base;
+    s32 row;
+    s32 column;
+    s32 offset;
+    s32 selectedOffset;
+    s32 selectedRow;
+    s32 selectedColumn;
+    s16 value;
+
+    row = *(s16 *)(state + 8) - *(s16 *)(state + 0xC);
+    offset = row * 0x68;
+    if (*(s32 *)(table + offset) != 0) {
+        origin = *(u16 *)(state + 0xE);
+        entry = offset + (u8 *) lbl_801DC074;
+        count = entry[0x3A];
+        column = *(s16 *)(state + 0xA) - (s16) origin;
+        if (column >= count) {
+            /* Preserve the wide adjustment before the halfword store. */
+            adjusted = ((u32) count & 0xFFFFu) | 0x10000u;
+            adjusted--;
+            *(s16 *)(state + 0xA) = (s16) (origin + adjusted);
+        }
+    } else {
+        column = 0;
+    }
+    *(s32 *)(state + 0x34) = row;
+    *(s32 *)(state + 0x38) = column;
+
+    if (*(s32 *)(state + 0x68) != 0) {
+        selectedRow = *(s16 *)(state + 8) - *(s16 *)(state + 0xC);
+        base = (u32) lbl_801DC074;
+        selectedOffset = selectedRow * 0x68;
+        *(s32 *)(state + 0x34) = selectedRow;
+        if (*(s32 *)(base + selectedOffset) != 0) {
+            selectedEntry = (u8 *)(selectedOffset + base);
+            if (selectedEntry[0x3A] != 0) {
+                selectedColumn = *(s16 *)(state + 0xA) - (s16) *(u16 *)(state + 0xE);
+                *(s32 *)(state + 0x38) = selectedColumn;
+                if (selectedColumn < selectedEntry[0x3A]) {
+                    value = *(s16 *)(selectedColumn * 2 + *(s32 *)(base + selectedOffset));
+                    if (lbl_8040AFF8 == 0) {
+                        lbl_8040AFF0 = 1;
+                        lbl_8040AFF8 = 1;
+                    }
+                    SceneSelect_HandleEntry();
+                    lbl_804093B0 = value;
+                    lbl_804090E0 = 1;
+                }
+            }
+        }
+    } else if (*(s32 *)(state + 0x6C) != 0) {
+        Menu_CloseCurrent();
+    }
+}
+
+struct socksys_fx_s;
+s32 ParticlesPerFrame(f32, f32);
+s32 fn_80095A44(struct socksys_fx_s *, s32, const struct nuvec_s *, s32, const struct nuvec_s *);
+extern f32 lbl_801A17A8[];
+
+void BoltDebris(u8 *bolt, struct nuvec_s *positions, s32 index, const struct nuvec_s *direction) {
+    struct nuvec_s *position;
+    struct nuvec_s *selected;
+    u8 *object;
+    s32 i;
+    s32 effects;
+    s32 particleEffects;
+    s8 particle;
+    s8 effect;
+
+    effect = -1;
+    if (bolt[0xE4] == 6) {
+        effect = 0x3F;
+    } else {
+        object = *(u8 **)bolt;
+        if (object != NULL) {
+            switch (*(s16 *)(object + 0x1074)) {
+            case 0x79:
+            case 0x39:
+                effect = 0x2A;
+                break;
+            case 0x5D:
+                effect = 0x2C;
+                break;
+            }
+        }
+    }
+    if (bolt[0xE6] == 0x34) {
+        effect = 0x34;
+    }
+    if (effect != -1) {
+        effects = lbl_80409410->unk1B8;
+        if (index == -1) {
+            selected = positions + 1;
+        } else {
+            selected = &positions[index];
+        }
+        fn_800958F8(effects, effect, (s32)selected);
+        return;
+    }
+
+    position = positions;
+    i = 0;
+    do {
+        if (bolt[0xE5] != 0 && index == -1 && i != 1) {
+            goto next;
+        }
+        if (index != -1 && index != i) {
+            goto next;
+        }
+        if (direction != NULL) {
+            particleEffects = lbl_80409410->unk1B8;
+            particle = (s8)bolt[0xE6];
+            fn_80095A44((struct socksys_fx_s *)particleEffects, particle, position,
+                        ParticlesPerFrame(lbl_801A17A8[0], lbl_80408E9C), direction);
+        } else {
+            fn_800958F8(lbl_80409410->unk1B8, (s8)bolt[0xE6], (s32)&positions[i]);
+        }
+next:
+        i++;
+        position++;
+    } while (i <= 2);
+}
+
+struct bolt_hit_flags_s {
+    u32 pad0 : 10;
+    u32 mode : 2;
+    u32 padC : 20;
+};
+
+s32 SmashForce(s32, s32, s32, void *, s32);
+s32 fn_800C03BC(void *);
+s32 fn_8012647C(s16);
+void fn_80140504(struct NUTURRET_s *, char *, void *, s32);
+char *fn_801408D4(struct NUTURRET_s *, s32);
+extern s32 lbl_801A17AC[];
+extern f32 lbl_801A17B8[];
+extern s32 lbl_804093AC;
+
+void BoltHitPlat(u8 *bolt) {
+    void *position;
+    u8 *object;
+    u8 *owner;
+    u8 *rumbleObject;
+    char *entry;
+    struct NUTURRET_s *turrets;
+    s32 controller;
+    s32 force;
+    u8 *player;
+    s32 platform;
+    u8 *record;
+    s32 count;
+
+    position = bolt + 0x84;
+    fn_8006DCD4(lbl_801A17AC, (s32)position);
+    object = *(u8 **)bolt;
+    if (object != NULL) {
+        ((struct bolt_hit_flags_s *)(object + 0xF24))->mode = 2;
+        (*(u8 **)bolt)[0x1081] = 0xFF;
+    }
+    entry = fn_801408D4(lbl_80409410->turrets, *(s16 *)(bolt + 0xE0));
+    if (entry != NULL) {
+        owner = *(u8 **)bolt;
+        turrets = lbl_80409410->turrets;
+        if (owner != NULL) {
+            controller = (s8)owner[0x284];
+        } else {
+            controller = -1;
+        }
+        fn_80140504(turrets, entry, position, controller);
+        return;
+    }
+
+    force = fn_8012647C(*(s16 *)(bolt + 0xE0));
+    if (force != 0) {
+        SmashForce(0, force, 1, bolt, -1);
+        rumbleObject = *(u8 **)bolt;
+        if (rumbleObject != NULL) {
+            player = *(u8 **)(rumbleObject + 0xEEC);
+            if (player != NULL) {
+                NewRumble(**(s32 **)(player + 0x61C), lbl_801A17B8[0]);
+            }
+        }
+    } else {
+        count = 0x11F;
+        record = &lbl_80409410->pad57C[0x1F0];
+        platform = *(s16 *)(bolt + 0xE0);
+        do {
+            if (*(s32 *)(record + 0xC) == platform) {
+                break;
+            }
+            record += 0x10;
+            count--;
+        } while (count != 0);
+        if (lbl_804093AC == 0x39) {
+            fn_800C03BC(bolt);
+        }
+    }
+}
+
+extern u8 lbl_803E029F[];
+extern f32 lbl_80408284;
+extern f32 lbl_80408288;
+extern const f32 lbl_801A165C[];
+extern const f32 lbl_801A1660[];
+extern const f32 lbl_801A1664[];
+extern const f32 lbl_801A1668[];
+extern const f32 lbl_801A166C[];
+extern const f32 lbl_801A1670[];
+extern const f32 lbl_801A1674[];
+
+void DaveSetSoundFadeDist(void) {
+    u8 *options;
+    u8 *volume;
+    f32 divisor;
+
+    if (lbl_80409410 != NULL) {
+        options = (u8 *)lbl_803E0298;
+        options[6] = 8;
+        options[7] = 9;
+        switch (lbl_80409410->unk19C) {
+        case 3:
+            options[6] = 8;
+            options[7] = 5;
+            lbl_80408284 = lbl_801A165C[0];
+            lbl_80408288 = lbl_801A1660[0];
+            break;
+        case 9:
+            options[7] = 9;
+            options[6] = 7;
+            break;
+        case 10:
+            lbl_80408284 = lbl_801A1664[0];
+            lbl_80408288 = lbl_801A1668[0];
+            break;
+        case 13:
+            options[6] = 8;
+            options[7] = 10;
+            lbl_80408284 = lbl_801A1664[0];
+            lbl_80408288 = lbl_801A166C[0];
+            break;
+        default:
+            lbl_80408284 = lbl_801A1670[0];
+            lbl_80408288 = lbl_801A1674[0];
+            break;
+        }
+        if (lbl_80409410->unk1A8->flags & 0x4000) {
+            lbl_803E029F[0] = 4;
+        }
+        divisor = lbl_801A165C[0];
+        volume = lbl_803E029C;
+        fn_8006DEB0(((f32)(f64)volume[2] / divisor) * ((f32)(f64)volume[4] / divisor));
+        fn_8006DF68(((f32)(f64)volume[3] / divisor) * ((f32)(f64)volume[4] / divisor));
+    }
+}
+
+s32 fn_800272A0(s32 *, s32, f32);
+extern f32 lbl_801A1650[];
+extern f32 lbl_801A1654[];
+extern f32 lbl_801A1658[];
+
+void fn_800B4A88(f32 intensity) {
+    struct numtx_s matrix;
+    u8 *state;
+    u8 *modes;
+    u32 index;
+    f32 elapsed;
+    s32 level;
+    s32 i;
+    u8 *base;
+    s32 *special;
+
+    if (lbl_80408F64 != 0) {
+        level = lbl_80409410->unk198;
+        if (level == 0x7C) {
+            intensity *= lbl_8040B0BC;
+        } else if (level == 0x7D && lbl_8040B060[0] == 3) {
+            intensity *= lbl_8040B0E4;
+        } else if (fn_800B2ED4() == 0x1B) {
+            state = (u8 *)lbl_801DCF5C;
+            index = state[0x4E];
+            modes = state + 0x30;
+            if (modes[index] == 0xD) {
+                elapsed = *(f32 *)(state + 0x44);
+                if (elapsed < lbl_801A1650[0]) {
+                    intensity = lbl_801A1654[0] - 2.0f * elapsed;
+                } else {
+                    intensity = lbl_801A1658[0];
+                }
+            }
+        }
+        if (intensity > lbl_801A1658[0]) {
+            base = (u8 *)lbl_803E8660;
+            for (i = 0; i < 4; i++) {
+                special = (s32 *)(i * 0xC + (u32)base);
+                if (fn_800130F4(special) != 0) {
+                    matrix = *(struct numtx_s *)fn_800133FC(special);
+                    fn_800272A0((s32 *)(i * 0xC + (u32)base), (s32)&matrix, intensity);
+                }
+            }
+        }
+    }
+}
+
+s32 fn_800B2F10(void) {
+    s32 depth = gMenuDepth;
+    s16 id;
+
+    if (depth <= 1) {
+        return -1;
+    }
+
+    depth--;
+    id = ((MenuFrame *)gMenuStack)[depth].id;
+    if (id == -1) {
+        return -1;
+    }
+    return *(s32 *)((s8 *)gRegisteredMenuDefinitions + id * 0x1C);
+}
+
+
+typedef struct {
+    s32 word0;
+    s32 word1;
+    s32 word2;
+} MenuResetWords;
+
+typedef struct {
+    s32 unk0;
+    MenuResetWords saved;
+} MenuResetPrefix;
+
+void Menu_Unknown4_Enter(void) {
+    if ((u32)fn_800B2F10() - 1U <= 1U) {
+        MenuResetPrefix *prefix = (MenuResetPrefix *)lbl_803E0298;
+
+        *(MenuResetWords *)lbl_803E04B8 = prefix->saved;
+    }
+}
+
+void fn_800AC384(void);
+void fn_800E32F8(s32);
+extern u8 lbl_801DC9C8[];
+extern s32 lbl_80409074[];
+extern s32 lbl_8040B100;
+
+void fn_800B43F0(void) {
+    MenuResetPrefix *prefix = (MenuResetPrefix *)lbl_803E0298;
+    MenuToggle *toggle;
+    s32 i;
+
+    *(MenuResetWords *)lbl_803E04B8 = prefix->saved;
+    memset(lbl_803E0298, 0, 0x210);
+    prefix->saved = *(MenuResetWords *)lbl_803E04B8;
+    fn_800E32F8(lbl_8040B100);
+    ((u8 *)prefix)[1] = 5;
+    ((DMH1Tbl *)prefix)->e[(s8)lbl_801DC9C8[0]].a = 1;
+    ((s32 *)prefix)[0x1D8 / sizeof(s32)] |= 0x18;
+    fn_800AC384();
+    lbl_80409074[0] = 3;
+    lbl_80409074[1] = 4;
+    i = 10;
+    lbl_804093E0 = 0;
+    toggle = (MenuToggle *)lbl_801D5994;
+    do {
+        toggle[i - 1].on = 0;
+    } while (--i != 0);
+}
+
+void fn_8007BE20(char *, f32, f32, f32, f32, f32, f32, s32, u8, u8, u8);
+extern f32 lbl_801A041C[], lbl_801A0420[], lbl_801A0424[], lbl_801A0428[];
+extern char *lbl_803DF930[];
+extern f32 lbl_80409120;
+
+void Menu_Main_BuildOptions(void) {
+    if (NuRndrHackWaterLevel[0] >= lbl_801A041C[0]) {
+        f32 scale = lbl_801A0420[0];
+
+        if (NuRndrHackWaterLevel[0] >= scale && NuRndrHackWaterLevel[2] < lbl_801A0424[0]) {
+            fn_8007BE20(lbl_803DF930[0], lbl_801A0428[0], lbl_80409120, scale,
+                         0.5f, 0.5f, 0.5f, 0, 0xFF, 0xFF, 0xFF);
+        }
+    }
+}
+
+extern f32 lbl_801A0448[];
+extern f32 lbl_80408A98;
+extern f32 lbl_804090E4;
+
+void Menu_Unknown10_BuildOptions(MenuFrame *menu) {
+    f32 height = (f32)(menu->max12 - menu->minE);
+    f32 selected = (f32)-menu->selA;
+    f32 step = lbl_80408A84;
+    f32 scale = lbl_804090E4;
+    f32 factor = lbl_801A0448[0];
+    s32 i = 0;
+    s32 offset;
+    struct lbl_80409410_s *level;
+
+    menu->unk94 = scale;
+    menu->unkA8 = height * step * scale * factor;
+    menu->unk9C = selected * step * scale;
+    level = lbl_80409410;
+    if (i < level->unk244) {
+        offset = 0;
+        do {
+            s32 text = (s32)((u8 *)level->unk240 + offset);
+
+            lbl_80408A98 = menu->unk94;
+            i++;
+            offset += sizeof(*level->unk240);
+            fn_800769B4(menu, text, lbl_80408A57);
+            level = lbl_80409410;
+        } while (i < level->unk244);
+    }
+}
+
+void fn_8007AC80(char *, f32, f32, f32, f32, f32, f32, s32, u8, u8, u8, u8);
+extern f32 lbl_801A0364[];
+extern f32 lbl_801A0368[];
+extern s32 lbl_803DEE68[];
+extern s32 lbl_803DF898[];
+extern s32 lbl_803DF8A0[];
+extern s32 lbl_803DF8A4[];
+
+void Menu_Unknown3_BuildOptions(void *menu) {
+    s32 id;
+    f32 y;
+    f32 scale;
+    u8 *flags;
+    u8 *text;
+    f32 lineHeight;
+    f32 yOffset;
+
+    if (lbl_80408FE0 != 0) {
+        NuStrCpy(lbl_803E04F0, lbl_803DF8A0[0]);
+    } else {
+        NuStrCpy(lbl_803E04F0, lbl_803DEE68[0]);
+    }
+    id = *(s16 *)((u8 *)menu + 0x14);
+    if (id != -1) {
+        s32 type = *(s32 *)((u8 *)gRegisteredMenuDefinitions + id * 0x1C);
+        if (type != 1) {
+            if (type == 3) {
+                NuStrCpy(lbl_803E04F0, lbl_803DF898[0]);
+            } else if (lbl_804093C8 == 0x15) {
+                NuStrCpy(lbl_803E04F0, lbl_803DF8A4[0]);
+            }
+        }
+    }
+    scale = lbl_801A0364[0];
+    lineHeight = lbl_80408A84;
+    yOffset = lbl_801A0368[0];
+    y = lineHeight * scale + *(f32 *)((u8 *)menu + 0x9C);
+    *(f32 *)((u8 *)menu + 0x9C) = y;
+    flags = &lbl_80408A57;
+    fn_8007AC80((char *)lbl_803E04F0, *(f32 *)((u8 *)menu + 0x98),
+        y - lineHeight * yOffset, 1.0f, scale, scale, scale,
+        0, 0xFF, 0xBF, 0, *flags);
+    text = (u8 *)lbl_803DED88;
+    fn_800769B4(menu, *(s32 *)(text + 0xB34), *flags);
+    fn_800769B4(menu, *(s32 *)(text + 0xB44), *flags);
+}
+
+void fn_8000DCE0(struct numtx_s *, struct nuvec_s *);
+s32 NuSpecialFindMultiWC(struct nuhspecial_s *, struct numtx_s *);
+extern f32 lbl_801A1614[], lbl_801A1618[];
+extern s32 lbl_80409154;
+extern void *lbl_8040AFE4;
+
+void fn_800B4974(void) {
+    struct numtx_s matrix;
+    struct nuvec_s scale;
+    struct numtx_s aligned;
+
+    if (lbl_80409154 != 0) {
+        struct numtx_s *result;
+        f32 value = *(f32 *)(lbl_8040AF5C + 0x4C) * lbl_801A1614[0] * lbl_801A1618[0];
+        scale.x = scale.y = scale.z = value;
+        fn_8000DCE0(&matrix, &scale);
+        result = &matrix;
+        matrix._30 = *(f32 *)((u8 *)lbl_8040AFE4 + 0x70);
+        matrix._31 = *(f32 *)((u8 *)lbl_8040AFE4 + 0x74);
+        matrix._32 = *(f32 *)((u8 *)lbl_8040AFE4 + 0x78);
+        if (*(s32 *)((u8 *)lbl_80409410 + 0x774) != 0) {
+            if ((u32)result & 8) {
+                aligned = matrix;
+                result = &aligned;
+            }
+            NuSpecialFindMultiWC((struct nuhspecial_s *)((u8 *)lbl_80409410 + 0x76C), result);
+        }
     }
 }
