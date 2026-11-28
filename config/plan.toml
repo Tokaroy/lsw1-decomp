@@ -2728,3 +2728,23 @@ reason = "best 71/97: the 12-byte position copy and byte progress increment stil
 [[parked]]
 function = "fn_801417E0"
 reason = "best 90/94: both scale coefficients load directly into f4 instead of their separate retail temporaries; next: find the source expression or call argument lifetime that keeps each input coefficient separate from the computed scale"
+
+[[parked]]
+function = "MoveSubItemsRight"
+reason = "best 153/195 (was 104): lo/hi are rodata literals 0.0f/1.0f; clamp = MAX(0.0f, MIN(t, 1.0f)); lbl_802E9C1C is a 3-float struct; early-block store order [2],timer,C8,CC,[0],[1],scroll,C4 matched; post-loop temp reuses `one` (f31); remaining: t/hi f11<->f12 swap in loop and post-loop; next: different t/one variable roles or permuter burst on work/hc/MoveSubItemsRight.best.c, then mirror to Left"
+
+[[parked]]
+function = "MoveSubItemsLeft"
+reason = "retried: best 153/195: mirror of Right with literals, early block matches; final 4 lerps use clamp result f31 directly where target copies t=fmr f11,f31 and fmadds on f11 (6 insns short), loop clamp t/1.0 regs swapped; next: find clamp/lerp shape keeping t and clamp temp distinct (work/hc/MoveSubItemsLeft.best.c)"
+
+[[parked]]
+function = "CollideBoltStarFighter"
+reason = "best 187/199 (was 178): NuVecSubPS via static inline wrapper fixes first block; rodata labels are literals (0/4/2/1/2e6/4e4 floats, strings DogBits etc.); left: &step CSE-cached in r30 across NuVecScale (target rematerializes addi r1,0x28 at call and asm; tried inner-block/array/if-else-call), and dx/dy f12/f13 swap in dist-sq (all 18 decl/sum orders and an inline helper tried); next: NuVecAddPS as an inline function instead of macro, or permuter burst on work/hc/CollideBoltStarFighter.best.c"
+
+[[parked]]
+function = "DrawTopShelf"
+reason = "retried: best 312/340: 1.0f literal + static inline per-object helpers (DtsObjA/B, DtsSpecA/B, DtsSetup); left: scale-vector stfs/addi r3/li r4 scheduling around NuMtxSetIdentity..fn_8000E540, block 2 special address computed early, block 5 pos load reg swap; next: setup helper shape (sc as by-value/return, NuMtxScale arg form) (work/hc/DrawTopShelf.best.c)"
+
+[[parked]]
+function = "Shop_DrawCodes"
+reason = "retried: best 376/391: literals + char[7] sda buffer + static inline draw helpers (DcDraw/DcDrawAt) + pos=lbl_80401894 hoisted; left: target keeps clrlwi on the (u8)(c-0x30)<=9 test (gcc drops it in every spelling tried), base/t fsubs register order, scale-vector stfs/li r4 scheduling in the setup (same as DrawTopShelf); next: char test via inline helper/switch, setup helper shape (work/hc/Shop_DrawCodes.best.c)"
